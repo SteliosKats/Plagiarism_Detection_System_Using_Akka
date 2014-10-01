@@ -1,0 +1,10 @@
+[info] Running sample.hello.FileIndexer 
+[debug] Waiting for threads to exit or System.exit to be called.
+[debug]   Classpath:
+[debug] 	/root/akka-sample-main-scala/target/scala-2.10/classes
+[debug] 	/root/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.10.4.jar
+[debug] 	/root/.ivy2/cache/com.typesafe.akka/akka-actor_2.10/jars/akka-actor_2.10-2.3.5.jar
+[debug] 	/root/.ivy2/cache/com.typesafe/config/bundles/config-1.2.1.jar
+[debug] Waiting for thread run-main-0 to terminate.
+[debug] 	Thread run-main-0 exited.
+[debug] Waiting for thread indexingsystem-scheduler-1 to terminate.
