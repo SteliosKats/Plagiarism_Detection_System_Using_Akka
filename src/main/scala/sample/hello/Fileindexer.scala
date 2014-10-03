@@ -36,14 +36,17 @@ object FileIndexer{
 class FileReceiver extends Actor{
   def receive ={
     case file_properties(filename, fileid) =>
+
+      /* Creating A router to route "Workers" to ectract citations for each line of the file */
       val router ={
          val routees=Vector.fill(5){
-            val lineseparator=context.actorOf(Props[LineSeparator],"lineSeparating")
+            val lineseparator=context.actorOf(Props[LineSeparator])
             context watch lineseparator
             ActorRefRoutee(lineseparator)
          }
          Router(RoundRobinRoutingLogic(), routees)
       }
+      /* Creating A router to route "Workers" to ectract citations for each line of the file */
 
       //val lineseparator=context.actorOf(Props[LineSeparator], "lineSeparating")
        //println(filename.length().toString())
@@ -64,7 +67,7 @@ class LineSeparator extends Actor with ActorLogging {
   def receive ={
 
     case line :String =>
-
+      println(line)
     case _ =>
       println("No line received")
 

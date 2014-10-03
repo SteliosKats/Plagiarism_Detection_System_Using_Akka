@@ -7,7 +7,7 @@
 [0m[[0mdebug[0m] [0m== resolving dependencies for default#akka-sample-main-scala_2.10;2.3.5 [compile][0m
 [0m[[0mdebug[0m] [0m== resolving dependencies default#akka-sample-main-scala_2.10;2.3.5->org.scala-lang#scala-library;2.10.4 [compile->default(compile)][0m
 [0m[[0minfo[0m] [0mResolving org.scala-lang#scala-library;2.10.4 ...[0m
-[0m[[0mdebug[0m] [0msbt-chain: Checking cache for: sbt.ivyint.MergedDescriptors@5507f1b0[0m
+[0m[[0mdebug[0m] [0msbt-chain: Checking cache for: sbt.ivyint.MergedDescriptors@457bd2f2[0m
 [0m[[0mdebug[0m] [0msbt-chain: module revision found in cache: org.scala-lang#scala-library;2.10.4[0m
 [0m[[0mdebug[0m] [0m	local: revision in cache: org.scala-lang#scala-library;2.10.4[0m
 [0m[[0mdebug[0m] [0m	found org.scala-lang#scala-library;2.10.4 in sbt-chain[0m
@@ -216,7 +216,7 @@
 [0m[[0mdebug[0m] [0m	[NOT REQUIRED] org.scala-lang#scala-reflect;2.10.4!scala-reflect.jar[0m
 [0m[[0mdebug[0m] [0m	[NOT REQUIRED] org.scala-lang#jline;2.10.4!jline.jar[0m
 [0m[[0mdebug[0m] [0m	[NOT REQUIRED] org.fusesource.jansi#jansi;1.4!jansi.jar[0m
-[0m[[0mdebug[0m] [0m:: resolution report :: resolve 167ms :: artifacts dl 8ms[0m
+[0m[[0mdebug[0m] [0m:: resolution report :: resolve 175ms :: artifacts dl 13ms[0m
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 compile produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-compile.xml[0m
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 runtime produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-runtime.xml[0m
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 test produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-test.xml[0m
@@ -230,5 +230,5 @@
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 docs produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-docs.xml[0m
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 pom produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-pom.xml[0m
 [0m[[0mdebug[0m] [0m	report for default#akka-sample-main-scala_2.10;2.3.5 scala-tool produced in /root/akka-sample-main-scala/target/resolution-cache/reports/default-akka-sample-main-scala_2.10-scala-tool.xml[0m
-[0m[[0mdebug[0m] [0m	resolve done (167ms resolve - 8ms download)[0m
+[0m[[0mdebug[0m] [0m	resolve done (175ms resolve - 13ms download)[0m
 [0m[[0minfo[0m] [0mDone updating.[0m

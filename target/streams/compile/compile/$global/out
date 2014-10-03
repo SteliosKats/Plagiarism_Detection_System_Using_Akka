@@ -2,31 +2,14 @@
 [debug] Initial source changes: 
 [debug] 	removed:Set()
 [debug] 	added: Set()
-[debug] 	modified: Set(/root/akka-sample-main-scala/src/main/scala/sample/hello/Fileindexer.scala)
+[debug] 	modified: Set()
 [debug] Removed products: Set()
 [debug] Modified external sources: Set()
 [debug] Modified binary dependencies: Set()
-[debug] Initial directly invalidated sources: Set(/root/akka-sample-main-scala/src/main/scala/sample/hello/Fileindexer.scala)
+[debug] Initial directly invalidated sources: Set()
 [debug] 
 [debug] Sources indirectly invalidated by:
 [debug] 	product: Set()
 [debug] 	binary dep: Set()
 [debug] 	external source: Set()
-[debug] All initially invalidated sources: Set(/root/akka-sample-main-scala/src/main/scala/sample/hello/Fileindexer.scala)
-[debug] Recompiling all 1 sources: invalidated sources (1) exceeded 50.0% of all sources
-[info] Compiling 1 Scala source to /root/akka-sample-main-scala/target/scala-2.10/classes...
-[debug] Getting compiler-interface from component compiler for Scala 2.10.4
-[debug] Getting compiler-interface from component compiler for Scala 2.10.4
-[debug] Running cached compiler 527ce5d5, interfacing (CompilerInterface) with Scala compiler version 2.10.4
-[debug] Calling Scala compiler with arguments  (CompilerInterface):
-[debug] 	-bootclasspath
-[debug] 	/opt/jdk1.7.0_67/jre/lib/resources.jar:/opt/jdk1.7.0_67/jre/lib/rt.jar:/opt/jdk1.7.0_67/jre/lib/sunrsasign.jar:/opt/jdk1.7.0_67/jre/lib/jsse.jar:/opt/jdk1.7.0_67/jre/lib/jce.jar:/opt/jdk1.7.0_67/jre/lib/charsets.jar:/opt/jdk1.7.0_67/jre/lib/jfr.jar:/opt/jdk1.7.0_67/jre/classes:/root/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.10.4.jar
-[debug] 	-classpath
-[debug] 	/root/akka-sample-main-scala/target/scala-2.10/classes:/root/.ivy2/cache/com.typesafe.akka/akka-actor_2.10/jars/akka-actor_2.10-2.3.5.jar:/root/.ivy2/cache/com.typesafe/config/bundles/config-1.2.1.jar
-[debug] Scala compilation took 9.382853629 s
-[debug] Invalidated by transitive public inheritance: Set()
-[debug] Invalidated by direct dependency: Set()
-[debug] New invalidations:
-[debug] 	Set()
-[debug] Previously invalidated, but (transitively) depend on new invalidations:
-[debug] 	Set()
+[debug] All initially invalidated sources: Set()

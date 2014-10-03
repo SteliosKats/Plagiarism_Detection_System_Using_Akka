@@ -7,4 +7,6 @@
 [debug] 	/root/.ivy2/cache/com.typesafe/config/bundles/config-1.2.1.jar
 [debug] Waiting for thread run-main-0 to terminate.
 [debug] 	Thread run-main-0 exited.
-[debug] Waiting for thread indexingsystem-akka.actor.default-dispatcher-4 to terminate.
+[debug] Waiting for thread indexingsystem-akka.actor.default-dispatcher-3 to terminate.
+[debug] 	Thread indexingsystem-akka.actor.default-dispatcher-3 exited.
+[debug] Waiting for thread indexingsystem-akka.actor.default-dispatcher-2 to terminate.

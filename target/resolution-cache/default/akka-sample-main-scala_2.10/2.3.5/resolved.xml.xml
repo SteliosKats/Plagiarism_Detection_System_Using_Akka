@@ -4,7 +4,7 @@
 		module="akka-sample-main-scala_2.10"
 		revision="2.3.5"
 		status="integration"
-		publication="20141002225841"
+		publication="20141003063325"
 	>
 		<description>
 		akka-sample-main-scala
