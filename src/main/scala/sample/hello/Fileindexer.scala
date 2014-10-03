@@ -72,9 +72,15 @@ class LineSeparator extends Actor with ActorLogging {
     case routingmessages(line,counter) =>
     val references_ar=for( i <-0 to (line.length()-1) if(line.charAt(i) == '[') )yield i
     val references_de=for( i <-0 to (line.length()-1) if(line.charAt(i) == ']') )yield i
-    println(references_ar)
-    if (!references_ar.isEmpty){
 
+    if (!references_ar.isEmpty){
+      if(references_ar.length.>(references_de.length)){
+        val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)   //references_ar.foreach(reference => line.substring(reference,references_de) )
+        println(reference_array)
+      }
+     // else{
+     //   val reference_array=for( i <- 0 to (references_de.length -1) )yield line.substring(references_ar(i),references_de(i))
+     // }
     }
 
     case _ =>
