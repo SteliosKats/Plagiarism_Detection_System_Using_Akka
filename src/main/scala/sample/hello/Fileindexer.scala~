@@ -12,12 +12,10 @@ import akka.routing.ActorRefRoutee
 import akka.routing.Router
 import akka.routing.RoundRobinRoutingLogic
 
-
 /**
  * Created by root on 9/30/14.
  */
 case class file_properties(filename :File,fileid :Int)
-case class routingmessages(fileline :String, counter :Int)
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
@@ -53,9 +51,8 @@ class FileReceiver extends Actor{
       //val lineseparator=context.actorOf(Props[LineSeparator], "lineSeparating")
        //println(filename.length().toString())
        //println("file's length is"+filename.length())
-       var counter=0
        for(line <- Source.fromFile(filename).getLines()){
-          router.route(routingmessages(line,counter), sender())
+          router.route(line, sender())
        }
 
     case _ =>
@@ -69,14 +66,8 @@ class FileReceiver extends Actor{
 class LineSeparator extends Actor with ActorLogging {
   def receive ={
 
-    case routingmessages(line,counter) =>
-    val references_ar=for( i <-0 to (line.length()-1) if(line.charAt(i) == '[') )yield i
-    val references_de=for( i <-0 to (line.length()-1) if(line.charAt(i) == ']') )yield i
-    println(references_ar)
-    if (!references_ar.isEmpty){
-
-    }
-
+    case line :String =>
+      println(line)
     case _ =>
       println("No line received")
 
