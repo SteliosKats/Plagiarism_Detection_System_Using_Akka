@@ -18,7 +18,6 @@ import akka.routing.RoundRobinRoutingLogic
  */
 case class file_properties(filename :File,fileid :Int)
 case class routingmessages(fileline :String, counter :Int)
-
 object FileIndexer{
   def main(args: Array[String]): Unit = {
    var path_filename=new File(" ")
@@ -72,15 +71,23 @@ class LineSeparator extends Actor with ActorLogging {
     case routingmessages(line,counter) =>
     val references_ar=for( i <-0 to (line.length()-1) if(line.charAt(i) == '[') )yield i
     val references_de=for( i <-0 to (line.length()-1) if(line.charAt(i) == ']') )yield i
-
     if (!references_ar.isEmpty){
-      if(references_ar.length.>(references_de.length)){
+     // println("references_ar.length:"+references_ar.length+"\t references_de.length:"+references_ar.length)
+      if(references_ar.length.>(references_de.length) && !references_de.isEmpty){
         val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)   //references_ar.foreach(reference => line.substring(reference,references_de) )
+        val new_reference_array=reference_array.++(line.substring(references_ar(references_ar.length -1),line.length()-1))
+        println(new_reference_array)
+      }
+      else if(references_ar.length.<(references_de.length)) {
+        var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)
+        val new_reference_array=reference_array.++(line.substring(0,references_de(0)+1))
+        println(new_reference_array)
+      }
+      else{
+        val reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)
         println(reference_array)
       }
-     // else{
-     //   val reference_array=for( i <- 0 to (references_de.length -1) )yield line.substring(references_ar(i),references_de(i))
-     // }
+      
     }
 
     case _ =>
