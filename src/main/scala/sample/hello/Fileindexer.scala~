@@ -17,8 +17,8 @@ import akka.routing.RoundRobinRoutingLogic
  * Created by root on 9/30/14.
  */
 case class file_properties(filename :File,fileid :Int)
-case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef)
-case class return_references(reference_array :IndexedSeq[String], line_num :Int)
+case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,fileid :Int)
+case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int)
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
@@ -57,12 +57,15 @@ class FileReceiver extends Actor{
        var counter=0
        for(line <- Source.fromFile(filename).getLines()){
           counter+=1
-          router.route(routingmessages(line,counter,self), sender())
+          router.route(routingmessages(line,counter,self,fileid), sender())
        }
-    case return_references (ref_array, line_num) =>
+    case return_references (ref_array, line_num,fileid) =>
+      //val mapped_refs :Map[String, Int]= Map(ref_array map{s => (s, line_num)} : _*)
 
-      val mapped_refs :Map[String, Int]= Map(ref_array map{s => (s, line_num)} : _*)
-
+      /* to "," sto value tou Map ksexwrizei ton monadiko arithmo keimenou apo ton arithmo grammhs tou sygkrkrimenou keimenou */
+      val list_id_line: IndexedSeq[String]= (for ( i <-0 to line_num) yield (fileid.toString()+","+line_num.toString())).distinct
+      val mapped_refs :Map[String, IndexedSeq[String]]= Map(ref_array map{s => (s, list_id_line)} : _*)
+      println(mapped_refs)
 
     case _ =>
       println("I got nothing")
@@ -75,7 +78,7 @@ class FileReceiver extends Actor{
 class LineSeparator extends Actor with ActorLogging {
   def receive ={
 
-    case routingmessages(line,counter,file_receiver_ref) =>
+    case routingmessages(line,counter,file_receiver_ref,fileid) =>
     val references_ar=for( i <-0 to (line.length()-1) if(line.charAt(i) == '[') )yield i
     val references_de=for( i <-0 to (line.length()-1) if(line.charAt(i) == ']') )yield i
 
@@ -83,29 +86,29 @@ class LineSeparator extends Actor with ActorLogging {
       if(references_ar.length==1 && references_de.isEmpty ) {
         val new_reference_array=IndexedSeq[String] (line.substring(references_ar(references_ar.length -1),line.length()))
         //println(new_reference_array)
-        file_receiver_ref.!(return_references(new_reference_array,counter))
+        file_receiver_ref.!(return_references(new_reference_array,counter,fileid))
       }
       else if(references_de.length==1 && references_ar.isEmpty){
         val new_reference_array= IndexedSeq[String] (line.substring(0,references_de(references_de.length -1)+1))
         //println(new_reference_array)
-        file_receiver_ref.!(return_references(new_reference_array,counter))
+        file_receiver_ref.!(return_references(new_reference_array,counter,fileid))
       }
       else if(references_ar.length.>(references_de.length) && !references_de.isEmpty){
         val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)   //references_ar.foreach(reference => line.substring(reference,references_de) )
         val new_reference_array=reference_array.++(line.substring(references_ar(references_ar.length -1),line.length()).split("[\r\n]+"))
         //println(new_reference_array)
-        file_receiver_ref.!(return_references(new_reference_array,counter))
+        file_receiver_ref.!(return_references(new_reference_array,counter,fileid))
       }
       else if(references_ar.length.<(references_de.length)) {
         var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)
         val new_reference_array=reference_array.++(line.substring(0,references_de(0)+1).split("[\r\n]+"))
         //println(new_reference_array)
-        file_receiver_ref.!(return_references(new_reference_array,counter))
+        file_receiver_ref.!(return_references(new_reference_array,counter,fileid))
       }
       else{
         val new_reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)
         //println(reference_array)
-        file_receiver_ref.!(return_references(new_reference_array,counter))
+        file_receiver_ref.!(return_references(new_reference_array,counter,fileid))
       }
 
     }
