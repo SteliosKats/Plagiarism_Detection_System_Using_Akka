@@ -2,8 +2,8 @@ akka {
   loglevel = INFO
 }
 akka.actor.deployment {
-  /parent/actor_ref_file/algo_router {
-    router = round-robin-pool
+  /parent/actor_ref_file/pool_router {
+    router = round-robin
     nr-of-instances = 5
   }
 }

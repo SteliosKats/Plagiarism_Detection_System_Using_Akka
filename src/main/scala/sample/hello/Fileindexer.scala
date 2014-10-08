@@ -1,16 +1,17 @@
 package sample.hello
 
 import java.nio.channels.FileChannel
-
 import akka.actor._
 import akka.routing.RoundRobinRouter
 import com.typesafe.config.ConfigFactory
 import java.io._
 import java.io.File
+import scala.collection.immutable.ListMap
 import scala.io.Source
 import akka.routing.ActorRefRoutee
 import akka.routing.Router
 import akka.routing.RoundRobinRoutingLogic
+import akka.routing.RoundRobinPool
 import akka.actor.PoisonPill
 import akka.routing.Broadcast
 import akka.actor.Terminated
@@ -22,6 +23,8 @@ import akka.actor.Terminated
 case class file_properties(filename :File,fileid :Int, total_files: Int)
 case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,fileid :Int)
 case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int, poisoned_routees :Int)
+
+case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int])
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
@@ -71,7 +74,6 @@ class FileReceiver extends Actor{
         router.route(Broadcast(PoisonPill), sender())
       }
     case return_references (ref_array, line_num,fileid,poisoned_routees) =>
-      //val mapped_refs :Map[String, Int]= Map(ref_array map{s => (s, line_num)} : _*)
 
       /* to "," sto value tou Map ksexwrizei ton monadiko arithmo keimenou apo ton arithmo grammhs tou sygkrkrimenou keimenou */
       if(poisoned_routees!=5) {
@@ -80,8 +82,18 @@ class FileReceiver extends Actor{
         all_refs=all_refs.++(mapped_refs)
       }
       else {
-        println(all_refs)
+        all_refs=ListMap(all_refs.toList.sortBy{_._2}:_*)
+        val algo_router: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[Algorithms_Execution]), "algorithms_router")
+        context.watch(algo_router)
 
+        println(all_refs)
+        val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
+        for (i <- 0 to all_refs.max._2){
+          val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
+            algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
+
+        }
+       println(source_doc_refs)
       }
     case Terminated (corpse) =>
       router = router.removeRoutee(corpse)
@@ -140,6 +152,17 @@ class LineSeparator extends Actor with ActorLogging {
 
     case _ =>
       println("No line received")
+
+  }
+
+}
+
+class Algorithms_Execution extends Actor with ActorLogging{
+
+  def receive ={
+
+    case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
+
 
   }
 
