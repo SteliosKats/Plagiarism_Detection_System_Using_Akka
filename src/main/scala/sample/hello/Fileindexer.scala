@@ -88,7 +88,10 @@ class FileReceiver extends Actor{
 
         //println(all_refs)
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
+<<<<<<< HEAD
         //println(source_doc_refs)
+=======
+>>>>>>> 8fd08715f365d97271402a14c5226d1d7f072afc
         for (i <- 1 to all_refs.max._2){
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
             algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
