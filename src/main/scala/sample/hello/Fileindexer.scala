@@ -88,11 +88,8 @@ class FileReceiver extends Actor{
 
         //println(all_refs)
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
-<<<<<<< HEAD
         //println(source_doc_refs)
-=======
->>>>>>> 8fd08715f365d97271402a14c5226d1d7f072afc
-        for (i <- 1 to all_refs.max._2){
+        for (i <- 2 to all_refs.max._2){
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
             algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
 
@@ -162,30 +159,40 @@ class LineSeparator extends Actor with ActorLogging {
 }
 
 class Algorithms_Execution extends Actor with ActorLogging{
+
   def receive ={
 
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
-      var new_source_doc_refs :Map[String,Int] =(for(key <- source_doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toInt ) ).toMap         //key.takeRight(1)  key.init
-
-      new_source_doc_refs=ListMap(new_source_doc_refs.toList.sortBy(_._2):_*)
-      var concat_row= -1
-      var concat_ref=" "
-      //println(new_source_doc_refs)
-      for(key <- new_source_doc_refs.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
-        if(!key._1.endsWith("]")){
-          concat_row=key._2
-          concat_ref=key._1
-          //println(concat_ref+"\t"+concat_row)
-        }
-        if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
-          new_source_doc_refs=new_source_doc_refs.+(concat_ref+key._1 -> concat_row)
-          println(key._2+"\t"+key._1)
-        }
-        new_source_doc_refs=new_source_doc_refs.-(key._1)
-      }
-      println(new_source_doc_refs)
-
+     val proc_source_doc_refs=MapProcessing(source_doc_refs)
+     val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
+     println(proc_plag_doc_refs)
+     println(proc_source_doc_refs)
+      
   }
+
+  def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Int] ={
+
+    var new_source_doc_refs :Map[String,Int] =(for(key <- mapped_doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toInt ) ).toMap         //key.takeRight(1)  key.init
+
+    new_source_doc_refs=ListMap(new_source_doc_refs.toList.sortBy(_._2):_*)
+    var concat_row= -1
+    var concat_ref=" "
+    //println(new_source_doc_refs)
+    for(key <- new_source_doc_refs.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
+      if(!key._1.endsWith("]")){
+        concat_row=key._2
+        concat_ref=key._1
+        //println(concat_ref+"\t"+concat_row)
+      }
+      if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
+        new_source_doc_refs=new_source_doc_refs.+(concat_ref+key._1 -> concat_row)
+        //println(key._2+"\t"+key._1)
+      }
+      new_source_doc_refs=new_source_doc_refs.-(key._1)
+    }
+    return(ListMap(new_source_doc_refs.toList.sortBy(_._2):_*))
+  }
+
 
 }
 
