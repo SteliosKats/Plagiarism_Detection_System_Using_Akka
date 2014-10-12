@@ -77,30 +77,22 @@ class FileReceiver extends Actor{
 
       /* to "," sto value tou Map ksexwrizei ton monadiko arithmo keimenou apo ton arithmo grammhs tou sygkrkrimenou keimenou */
       if(poisoned_routees!=5) {
-        // Store in  Map[reference -> file_id,line]  format
+        // Store in  Map[reference@line,exact_place -> file_id]  format
         val mapped_refs :Map[String, Int] = Map(ref_array map { s => (s, fileid)}: _*)
         all_refs=all_refs.++(mapped_refs)
-
+        println(all_refs)
       }
       else {
+        /* list Map with alla extracted references by file_id */
         all_refs=ListMap(all_refs.toList.sortBy{_._2}:_*)
         val algo_router: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[Algorithms_Execution]), "algorithms_router")
         context.watch(algo_router)
 
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
-<<<<<<< HEAD
-       // println(source_doc_refs)
+        println("OOOOOOOOOOOOOOOOOk"+source_doc_refs)
         for (i <- 2 to all_refs.max._2){
-=======
-        //println(source_doc_refs)
-        for (i <- 2 to all_refs.max._2){
-
-        //println(source_doc_refs)
-        
-        for (i <- 1 to all_refs.max._2){
->>>>>>> 6b9247c63034fff953a75c07bf7db6b950393dc1
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
-            //println(plag_doc_refs)
+            println(plag_doc_refs)
             algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
 
         }
@@ -175,8 +167,12 @@ class Algorithms_Execution extends Actor with ActorLogging{
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
      val proc_source_doc_refs=MapProcessing(source_doc_refs)
      val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
-     println(proc_plag_doc_refs)
-     println(proc_source_doc_refs)
+
+     //println(proc_plag_doc_refs)
+     //println(proc_source_doc_refs)
+
+     //val matching_citations= proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet)))
+      //println(matching_citations)
 
   }
 
