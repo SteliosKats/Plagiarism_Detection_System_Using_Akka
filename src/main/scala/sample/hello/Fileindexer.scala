@@ -168,9 +168,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
-
-      //println(processed_plag_doc_refs)
-      //println(processed_source_doc_refs)
+      val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
+      val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
+      println(citation_chunked_source_doc_refs)
+      println(citation_chunked_plag_doc_refs)
 
     }
 
@@ -221,7 +222,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
   }
 
-  def CitationChinkingAlgorithm(processed_source_doc_refs :Map[String,Float],processed_plag_doc_refs :Map[String,Float]): Unit ={
+  def CitationChinkingAlgorithm(processed_source_doc_refs :Map[String,Float],processed_plag_doc_refs :Map[String,Float]):Map[String,Int] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
     /*                                                                                                                                  */
     /*                                           This Function implements the Citation Chunking (CC) Algorithm                          */
@@ -241,7 +242,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
       //println(plag_key1._1)
       for_counter=0
       for(plag_key2 <- processed_source_doc_refs.seq if(found!=true)){
-        println(current_ref_pointer+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
+        //println(current_ref_pointer+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
         if(current_ref_pointer!=for_counter){
           for_counter+=1
         }
@@ -256,12 +257,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
             current_ref_pointer +=1
             counted_non_matched = 0
             mapped_cc = mapped_cc.+(plag_key1._1 -> 1)
-            println(mapped_cc)
             matched_key=plag_key1._1
             found = true
           }
           else if (plag_key1._1 == plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
-            println(plag_key2._1)
             matched_key = matched_key + ","+"X,"*counted_non_matched + plag_key1._1
             val cc_chunk = matched_key
             val cc_number_of_matched = mapped_cc.last._2 + 1
@@ -269,11 +268,9 @@ class Algorithms_Execution extends Actor with ActorLogging{
             mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
             current_ref_pointer = current_ref_pointer + 1 + counted_non_matched //start the for from the last point we encountered matching citation
             counted_non_matched = 0
-            println(mapped_cc)
             found = true
           }
           else if(plag_key1._1==plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
-            println("Ok"+counted_non_matched)
             matched_key=new String()
             matched_key = plag_key1._1
             val cc_chunk = matched_key
@@ -281,12 +278,11 @@ class Algorithms_Execution extends Actor with ActorLogging{
             mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
             current_ref_pointer = current_ref_pointer + 1 + counted_non_matched
             counted_non_matched=0
-            println(mapped_cc)
             found = true
           }
         }
       }
     }
-    
+    return (mapped_cc)
   }
 }
