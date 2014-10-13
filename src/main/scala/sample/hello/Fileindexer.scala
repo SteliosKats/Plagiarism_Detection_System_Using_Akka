@@ -48,7 +48,7 @@ object FileIndexer{
 
 class FileReceiver extends Actor{
   var counter_terminated=0
-  var all_refs :Map[String,Int]=Map(" " -> 0)
+  var all_refs :Map[String,Int]=Map()
   var file_counter=0
   /* Creating A router to route "Workers" to extract citations for each line of the file */
   var router ={
@@ -87,12 +87,12 @@ class FileReceiver extends Actor{
         all_refs=ListMap(all_refs.toList.sortBy{_._2}:_*)
         val algo_router: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[Algorithms_Execution]), "algorithms_router")
         context.watch(algo_router)
-
+        //println(all_refs)
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
-        println(source_doc_refs)
-        for (i <- 2 to all_refs.max._2){
+        //println(source_doc_refs)
+        for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
-          println(plag_doc_refs)
+          //println(plag_doc_refs)
           algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
 
         }
@@ -169,19 +169,75 @@ class Algorithms_Execution extends Actor with ActorLogging{
       val proc_source_doc_refs=MapProcessing(source_doc_refs)
       val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
 
-    println(proc_plag_doc_refs)
-    println(proc_source_doc_refs)
+      //println(proc_plag_doc_refs)
+      println(proc_source_doc_refs)
 
-    //val matching_citations= proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet)))
-    //println(matching_citations)
+      val source_matching_citations= (proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet))))
+      val plag_matching_citations= (proc_plag_doc_refs.keySet.--((proc_plag_doc_refs.keySet.--(proc_source_doc_refs.keySet))))
+      println(source_matching_citations)
+     //println(plag_matching_citations)
+      var counted_non_matched=0
+      var current_ref_counter=0
+      var for_counter=0
+      var matched_key=new String()
+      var mapped_cc :Map[String,Int]=Map()
+      for( plag_key1 <- proc_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1))){//proc_plag_doc_refs.seq){
+        var found :Boolean=false
+        //println(plag_key1._1)
+        for_counter=0
+        for(plag_key2 <- proc_source_doc_refs.seq if(found!=true)){
+          //println(current_ref_counter+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
+          if(current_ref_counter!=for_counter){
+            for_counter+=1
+          }
+          else {
+            if (plag_key1._1 != plag_key2._1) {
+              //non matching citations (X)
+              counted_non_matched += 1
+              //matched_key = new String()
+            }
+            else if (plag_key1._1 == plag_key2._1 && mapped_cc.isEmpty) {
+              //An vriskoume matching citation kai einai to prwto pou vriskoume
+              current_ref_counter +=1
+              counted_non_matched = 0
+              mapped_cc = mapped_cc.+(plag_key1._1 -> 1)
+              println(mapped_cc)
+              matched_key=plag_key1._1
+              found = true
+            }
+            else if (plag_key1._1 == plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
+              println(plag_key2._1)
+              matched_key = matched_key + ","+"X,"*counted_non_matched + plag_key1._1
+              val cc_chunk = matched_key
+              val cc_number_of_matched = mapped_cc.last._2 + 1
+              mapped_cc = mapped_cc.-(mapped_cc.last._1)
+              mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
+              current_ref_counter = current_ref_counter + 1 + counted_non_matched //start the for from the last point we encountered matching citation
+              counted_non_matched = 0
+              println(mapped_cc)
+              found = true
+            }
+            else if(plag_key1._1==plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
+              println(plag_key1._1)
+              matched_key=new String()
+              counted_non_matched=0
+              matched_key = plag_key1._1
+              val cc_chunk = matched_key
+              val cc_number_of_matched = 1
+              mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
+              println(mapped_cc)
+            }
+          }
+        }
+      }
 
-  }
+    }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
 
     val doc_refs=for(key <- mapped_doc_refs.seq) yield (key._1.dropRight(4+key._2.toString().length()) -> key._2) //afairoume to &id=file_id apo to telos tou key String tou map
     //println(doc_refs)
-    var new_source_doc_refs :Map[String,Float] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toFloat ) ).toMap         //key.takeRight(1)  key.init
+    var new_source_doc_refs :Map[String,Float] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toFloat ) ).toMap
 
     new_source_doc_refs=ListMap(new_source_doc_refs.toList.sortBy(_._2):_*)
     var concat_row :Float= -1
@@ -197,11 +253,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
       }
       new_source_doc_refs=new_source_doc_refs.-(key._1)
     }
-    //var new_value=" "
-    //var float_value= -1.0
-    //var after_comma=0
-    //var after_comma_str=" "
-    //var pre_comma=" "
+
     var value_length1= -1
     var max_length= -1
     for(value <- new_source_doc_refs.values) {

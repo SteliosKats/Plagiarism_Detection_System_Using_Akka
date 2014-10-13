@@ -80,7 +80,7 @@ class FileReceiver extends Actor{
         // Store in  Map[reference@line,exact_place -> file_id]  format
         val mapped_refs :Map[String, Int] = Map(ref_array map { s => (s, fileid)}: _*)
         all_refs=all_refs.++(mapped_refs)
-        println(all_refs)
+        //println(all_refs)
       }
       else {
         /* list Map with alla extracted references by file_id */
@@ -89,11 +89,11 @@ class FileReceiver extends Actor{
         context.watch(algo_router)
 
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
-        println("OOOOOOOOOOOOOOOOOk"+source_doc_refs)
+        println(source_doc_refs)
         for (i <- 2 to all_refs.max._2){
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
-            println(plag_doc_refs)
-            algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
+          println(plag_doc_refs)
+          algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
 
         }
       }
@@ -119,31 +119,32 @@ class LineSeparator extends Actor with ActorLogging {
       val references_de=for( i <-0 to (line.length()-1) if(line.charAt(i) == ']') )yield i
 
       //Ksexwrizoume ton arithmo ths grammhs pou vrethike h anafora me to mhkos twn dyadikwn pshfiwn  tou arithmou ths grammhs me ton xarakthra "@"
+      // evala sto telos kathe string to id=file_id gia argotera pou de mporei to all_refs map na prosthesei idia keys me diaforetika values alla ta antimetwpizei ws updates
       if (!references_ar.isEmpty || !references_de.isEmpty){
         if(references_ar.length==1 && references_de.isEmpty ) {
-          val new_reference_array=IndexedSeq[String] (line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(0).toString())
+          val new_reference_array=IndexedSeq[String] (line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(0).toString()+"&id="+fileid.toString())
           //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_de.length==1 && references_ar.isEmpty){
-          val new_reference_array= IndexedSeq[String] (line.substring(0,references_de(references_de.length -1)+1)+"@"+counter.toString()+"."+references_de(0).toString())
+          val new_reference_array= IndexedSeq[String] (line.substring(0,references_de(references_de.length -1)+1)+"@"+counter.toString()+"."+references_de(0).toString()+"&id="+fileid.toString())
           //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.>(references_de.length) && !references_de.isEmpty){
-          val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()
-          val new_reference_array=reference_array.++((line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(references_ar.length -1).toString()).split("[\r\n]+"))
+          val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
+          val new_reference_array=reference_array.++((line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(references_ar.length -1).toString()+"&id="+fileid.toString()).split("[\r\n]+"))
           //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.<(references_de.length)) {
-          var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)+"@"+counter.toString()+"."+references_de(i).toString()
-          val new_reference_array=reference_array.++((line.substring(0,references_de(0)+1)+"@"+counter.toString()+"."+(references_de(0) -1).toString()).split("[\r\n]+")) //+"&"+counter.toString().length()
+          var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)+"@"+counter.toString()+"."+references_de(i).toString()+"&id="+fileid.toString()
+          val new_reference_array=reference_array.++((line.substring(0,references_de(0)+1)+"@"+counter.toString()+"."+(references_de(0) -1).toString()+"&id="+fileid.toString()).split("[\r\n]+")) //+"&"+counter.toString().length()
           //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else{
-          val new_reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()
+          val new_reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
           //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
@@ -165,19 +166,22 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def receive ={
 
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
-     val proc_source_doc_refs=MapProcessing(source_doc_refs)
-     val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
+      val proc_source_doc_refs=MapProcessing(source_doc_refs)
+      val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
 
-     //println(proc_plag_doc_refs)
-     //println(proc_source_doc_refs)
+    println(proc_plag_doc_refs)
+    println(proc_source_doc_refs)
 
-     //val matching_citations= proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet)))
-      //println(matching_citations)
+    //val matching_citations= proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet)))
+    //println(matching_citations)
 
   }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
-    var new_source_doc_refs :Map[String,Float] =(for(key <- mapped_doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toFloat ) ).toMap         //key.takeRight(1)  key.init
+
+    val doc_refs=for(key <- mapped_doc_refs.seq) yield (key._1.dropRight(4+key._2.toString().length()) -> key._2) //afairoume to &id=file_id apo to telos tou key String tou map
+    //println(doc_refs)
+    var new_source_doc_refs :Map[String,Float] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toFloat ) ).toMap         //key.takeRight(1)  key.init
 
     new_source_doc_refs=ListMap(new_source_doc_refs.toList.sortBy(_._2):_*)
     var concat_row :Float= -1
@@ -185,8 +189,8 @@ class Algorithms_Execution extends Actor with ActorLogging{
     //println(new_source_doc_refs)
     for(key <- new_source_doc_refs.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
       if(!key._1.endsWith("]")){
-         concat_row=key._2
-         concat_ref=key._1
+        concat_row=key._2
+        concat_ref=key._1
       }
       if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
         new_source_doc_refs=new_source_doc_refs.+(concat_ref+key._1 -> concat_row)
@@ -220,9 +224,9 @@ class Algorithms_Execution extends Actor with ActorLogging{
       }
     }
 
-      return(ListMap(new_source_doc_refs.toList.sortBy(_._2):_*))
+    return(ListMap(new_source_doc_refs.toList.sortBy(_._2):_*))
+
   }
 
 
 }
-
