@@ -166,70 +166,11 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def receive ={
 
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
-      val proc_source_doc_refs=MapProcessing(source_doc_refs)
-      val proc_plag_doc_refs=MapProcessing(plag_doc_refs)
+      val processed_source_doc_refs=MapProcessing(source_doc_refs)
+      val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
 
-      //println(proc_plag_doc_refs)
-      println(proc_source_doc_refs)
-
-      val source_matching_citations= (proc_source_doc_refs.keySet.--((proc_source_doc_refs.keySet.--(proc_plag_doc_refs.keySet))))
-      val plag_matching_citations= (proc_plag_doc_refs.keySet.--((proc_plag_doc_refs.keySet.--(proc_source_doc_refs.keySet))))
-      println(source_matching_citations)
-     //println(plag_matching_citations)
-      var counted_non_matched=0
-      var current_ref_counter=0
-      var for_counter=0
-      var matched_key=new String()
-      var mapped_cc :Map[String,Int]=Map()
-      for( plag_key1 <- proc_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1))){//proc_plag_doc_refs.seq){
-        var found :Boolean=false
-        //println(plag_key1._1)
-        for_counter=0
-        for(plag_key2 <- proc_source_doc_refs.seq if(found!=true)){
-          //println(current_ref_counter+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
-          if(current_ref_counter!=for_counter){
-            for_counter+=1
-          }
-          else {
-            if (plag_key1._1 != plag_key2._1) {
-              //non matching citations (X)
-              counted_non_matched += 1
-              //matched_key = new String()
-            }
-            else if (plag_key1._1 == plag_key2._1 && mapped_cc.isEmpty) {
-              //An vriskoume matching citation kai einai to prwto pou vriskoume
-              current_ref_counter +=1
-              counted_non_matched = 0
-              mapped_cc = mapped_cc.+(plag_key1._1 -> 1)
-              println(mapped_cc)
-              matched_key=plag_key1._1
-              found = true
-            }
-            else if (plag_key1._1 == plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
-              println(plag_key2._1)
-              matched_key = matched_key + ","+"X,"*counted_non_matched + plag_key1._1
-              val cc_chunk = matched_key
-              val cc_number_of_matched = mapped_cc.last._2 + 1
-              mapped_cc = mapped_cc.-(mapped_cc.last._1)
-              mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
-              current_ref_counter = current_ref_counter + 1 + counted_non_matched //start the for from the last point we encountered matching citation
-              counted_non_matched = 0
-              println(mapped_cc)
-              found = true
-            }
-            else if(plag_key1._1==plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
-              println(plag_key1._1)
-              matched_key=new String()
-              counted_non_matched=0
-              matched_key = plag_key1._1
-              val cc_chunk = matched_key
-              val cc_number_of_matched = 1
-              mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
-              println(mapped_cc)
-            }
-          }
-        }
-      }
+      //println(processed_plag_doc_refs)
+      //println(processed_source_doc_refs)
 
     }
 
@@ -280,5 +221,72 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
   }
 
-
+  def CitationChinkingAlgorithm(processed_source_doc_refs :Map[String,Float],processed_plag_doc_refs :Map[String,Float]): Unit ={
+    /*   -----------------------------------------------------------------------------------------------------------------------------  */
+    /*                                                                                                                                  */
+    /*                                           This Function implements the Citation Chunking (CC) Algorithm                          */
+    /*                                                                                                                                  */
+    /*    ------------------------------------------------------------------------------------------------------------------------------*/
+    val source_matching_citations= (processed_source_doc_refs.keySet.--((processed_source_doc_refs.keySet.--(processed_plag_doc_refs.keySet))))
+    val plag_matching_citations= (processed_plag_doc_refs.keySet.--((processed_plag_doc_refs.keySet.--(processed_source_doc_refs.keySet))))
+    println(source_matching_citations)
+    //println(plag_matching_citations)
+    var counted_non_matched=0   // counts the non matched citations between two documents and marks them as X
+    var current_ref_pointer=0   // points the element on the map where the next search for matching citation should start
+    var for_counter=0   // a counter for the inner for in order to skip preceding elements already encountered in previous fors in order to search from the current_ref_pointer and after
+    var matched_key=new String()    //The string that will be stored as key element in the Citation Chunking map
+    var mapped_cc :Map[String,Int]=Map()
+    for( plag_key1 <- processed_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1))){
+    var found :Boolean=false
+      //println(plag_key1._1)
+      for_counter=0
+      for(plag_key2 <- processed_source_doc_refs.seq if(found!=true)){
+        println(current_ref_pointer+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
+        if(current_ref_pointer!=for_counter){
+          for_counter+=1
+        }
+        else {
+          if (plag_key1._1 != plag_key2._1) {
+            //non matching citations (X)
+            counted_non_matched += 1
+            //matched_key = new String()
+          }
+          else if (plag_key1._1 == plag_key2._1 && mapped_cc.isEmpty) {
+            //An vriskoume matching citation kai einai to prwto pou vriskoume
+            current_ref_pointer +=1
+            counted_non_matched = 0
+            mapped_cc = mapped_cc.+(plag_key1._1 -> 1)
+            println(mapped_cc)
+            matched_key=plag_key1._1
+            found = true
+          }
+          else if (plag_key1._1 == plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
+            println(plag_key2._1)
+            matched_key = matched_key + ","+"X,"*counted_non_matched + plag_key1._1
+            val cc_chunk = matched_key
+            val cc_number_of_matched = mapped_cc.last._2 + 1
+            mapped_cc = mapped_cc.-(mapped_cc.last._1)
+            mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
+            current_ref_pointer = current_ref_pointer + 1 + counted_non_matched //start the for from the last point we encountered matching citation
+            counted_non_matched = 0
+            println(mapped_cc)
+            found = true
+          }
+          else if(plag_key1._1==plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
+            println("Ok"+counted_non_matched)
+            matched_key=new String()
+            matched_key = plag_key1._1
+            val cc_chunk = matched_key
+            val cc_number_of_matched = 1
+            mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
+            current_ref_pointer = current_ref_pointer + 1 + counted_non_matched
+            counted_non_matched=0
+            println(mapped_cc)
+            found = true
+          }
+        }
+      }
+    }
+    
+  }
 }
