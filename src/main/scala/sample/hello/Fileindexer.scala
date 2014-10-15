@@ -95,6 +95,7 @@ class FileReceiver extends Actor{
           //println(plag_doc_refs)
           algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
 
+
         }
       }
     case Terminated (corpse) =>
@@ -168,10 +169,17 @@ class Algorithms_Execution extends Actor with ActorLogging{
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
+
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
-      println(citation_chunked_source_doc_refs)
-      println(citation_chunked_plag_doc_refs)
+
+      //println(citation_chunked_source_doc_refs)
+      //println(citation_chunked_plag_doc_refs)
+
+      val map1 :Map[String,Int]=Map("[1999],[2000],[2003]" -> 2,"[1999],[2000],X,[2001],X,X,[20022003]" -> 4)
+      val map2 :Map[String,Int]=Map("[2011],[2001],[20022003],X,[2005],[1999],[2009],[2006],X,[2000],[2008]" -> 9 ,"[1999],[2000]" -> 2,"[1999],[2000],[2003]"->3)
+      
+      val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
 
     }
 
@@ -230,7 +238,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val source_matching_citations= (processed_source_doc_refs.keySet.--((processed_source_doc_refs.keySet.--(processed_plag_doc_refs.keySet))))
     val plag_matching_citations= (processed_plag_doc_refs.keySet.--((processed_plag_doc_refs.keySet.--(processed_source_doc_refs.keySet))))
-    println(source_matching_citations)
+    //println(source_matching_citations)
     //println(plag_matching_citations)
     var counted_non_matched=0   // counts the non matched citations between two documents and marks them as X
     var current_ref_pointer=0   // points the element on the map where the next search for matching citation should start
@@ -284,5 +292,47 @@ class Algorithms_Execution extends Actor with ActorLogging{
       }
     }
     return (mapped_cc)
+  }
+
+  def ChunkPairMatchingCC(map1 :Map[String,Int],map2 :Map[String,Int]):Map[String,Int] ={
+    var matched_pairs :Map[String,Int]=Map()
+    for (key1 <- map1.seq){
+      val array_keys1 :Array[String]=key1._1.replaceAll(",X","").split(",")
+      var maxi=0
+      var matched_plag_key :String=new String()
+      var counter=0
+      var previous_key=new String()
+      for(key2 <- map2.seq) {
+        var i :Int=0
+        for(array_key1 <- array_keys1.toSeq) {
+          val array_keys2: Array[String] = key2._1.replaceAll(",X", "").split(",")
+          array_keys2.foreach(arraykey2 => if (arraykey2 == array_key1) {i = i + 1 })//})
+          //println(array_key1)
+        }
+        if (i > maxi && counter == 0) {
+          maxi = i
+          matched_pairs = matched_pairs.+(key1._1 + "\t-\t" + key2._1 -> i)
+          counter += 1
+          previous_key=key2._1
+          //println(previous_key)
+          //println(matched_pairs)
+        }
+        else if (i > maxi && counter > 0) {
+          maxi = i
+          matched_pairs = matched_pairs.-(key1._1 + "\t-\t" + previous_key)
+          matched_pairs = matched_pairs.+(key1._1 + "\t-\t" + key2._1 -> i)
+          previous_key=key2._1
+          //println(matched_pairs)
+        }
+        else if(i==maxi && counter>0){
+          matched_pairs = matched_pairs.updated(key1._1 + "\t-\t" +previous_key+"\t-\t"+key2._1,i)
+          matched_pairs = matched_pairs.-(key1._1 + "\t-\t" +previous_key)
+          previous_key=previous_key+"\t-\t"+key2._1
+          //println("ok"+matched_pairs)
+        }
+      }
+
+    }
+    return(matched_pairs)
   }
 }
