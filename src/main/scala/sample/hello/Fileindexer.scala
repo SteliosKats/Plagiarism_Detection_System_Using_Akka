@@ -25,22 +25,24 @@ case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,file
 case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int, poisoned_routees :Int)
 
 case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int])
+case class Greedy_Citation_Tiling(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int])
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
     var path_filename=new File(" ")
     var fileid=0
     var tot_files=0
-    val current_directory=new File("/root/Desktop/")
+    val current_directory=new File("/root/Desktop/Webis-CPC-11")
     val indexingSystem= ActorSystem("indexingsystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"indexing")
     for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
       tot_files+=1
     }
     for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
-      path_filename=new File(file.toString())//current_directory.toString.+(file.toString))
+      path_filename=new File(file.toString())
       //println(path_filename)
       fileid+=1
+
       actor_ref_file ! file_properties(path_filename,fileid,tot_files)
     }
   }
@@ -94,7 +96,7 @@ class FileReceiver extends Actor{
           val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
           //println(plag_doc_refs)
           algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
-
+          algo_router ! Greedy_Citation_Tiling(source_doc_refs,plag_doc_refs)
 
         }
       }
@@ -124,29 +126,29 @@ class LineSeparator extends Actor with ActorLogging {
       if (!references_ar.isEmpty || !references_de.isEmpty){
         if(references_ar.length==1 && references_de.isEmpty ) {
           val new_reference_array=IndexedSeq[String] (line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(0).toString()+"&id="+fileid.toString())
-          //println(new_reference_array)
+          println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_de.length==1 && references_ar.isEmpty){
           val new_reference_array= IndexedSeq[String] (line.substring(0,references_de(references_de.length -1)+1)+"@"+counter.toString()+"."+references_de(0).toString()+"&id="+fileid.toString())
-          //println(new_reference_array)
+          println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.>(references_de.length) && !references_de.isEmpty){
           val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
           val new_reference_array=reference_array.++((line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(references_ar.length -1).toString()+"&id="+fileid.toString()).split("[\r\n]+"))
-          //println(new_reference_array)
+          println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.<(references_de.length)) {
           var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)+"@"+counter.toString()+"."+references_de(i).toString()+"&id="+fileid.toString()
           val new_reference_array=reference_array.++((line.substring(0,references_de(0)+1)+"@"+counter.toString()+"."+(references_de(0) -1).toString()+"&id="+fileid.toString()).split("[\r\n]+")) //+"&"+counter.toString().length()
-          //println(new_reference_array)
+          println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else{
           val new_reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
-          //println(new_reference_array)
+          println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
 
@@ -172,10 +174,17 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
+      //println(citation_chunked_source_doc_refs)
+      //println(citation_chunked_plag_doc_refs)
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
+      println(chunked_document_matches)
 
-    }
+    case Greedy_Citation_Tiling(source_doc_refs, plag_doc_refs) =>
+      val processed_source_doc_refs=MapProcessing(source_doc_refs)
+      val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
+
+  }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
 
@@ -327,5 +336,51 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
     }
     return(matched_pairs)
+  }
+
+  def GCTAlgorithm(map1 :Map[String,Int],map2 :Map[String,Int]):List[String] ={
+     var longest_cit_patt :List[String]=List()
+     var start_point :Int=0
+     var first_time :Boolean=true
+     var count_non_matches :Int=0
+     var start_posA :Int=0
+     var start_posB :Int=0
+     var count_docA :Int=0
+     var count_docB :Int=0
+     var tile_length :Int=0
+     var meet_X :Boolean=false
+     for(key1 <- map1.seq){
+       count_docA+=1
+       for(key2 <- map2.seq){
+         count_docB+=1
+         if(key1._1==key2._1 && first_time==true && key1._1!="X"){
+               tile_length+=1
+               start_posA=count_docA
+               start_posB=count_docB
+               count_non_matches=0
+               first_time=false
+               meet_X=false
+         }
+         else if(key1._1==key2._1 && first_time==false && count_non_matches.==(0) && key1._1!="X" ){
+              tile_length+=1
+              meet_X=true
+         }
+         else if(key1._1.!=(key2._1) && tile_length.>(1) && key1._1!="X"){
+           count_non_matches+=1
+           tile_length=0
+           longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)
+           first_time=true
+           meet_X=true
+         }
+
+
+       }
+
+     }
+    if(meet_X==false){
+      longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)
+    }
+    println(longest_cit_patt)
+     return(longest_cit_patt)
   }
 }

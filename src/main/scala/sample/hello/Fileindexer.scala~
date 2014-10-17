@@ -173,12 +173,6 @@ class Algorithms_Execution extends Actor with ActorLogging{
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
 
-      //println(citation_chunked_source_doc_refs)
-      //println(citation_chunked_plag_doc_refs)
-
-      val map1 :Map[String,Int]=Map("[1999],[2000],[2003]" -> 2,"[1999],[2000],X,[2001],X,X,[20022003]" -> 4)
-      val map2 :Map[String,Int]=Map("[2011],[2001],[20022003],X,[2005],[1999],[2009],[2006],X,[2000],[2008]" -> 9 ,"[1999],[2000]" -> 2,"[1999],[2000],[2003]"->3)
-      
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
 
     }
@@ -314,7 +308,6 @@ class Algorithms_Execution extends Actor with ActorLogging{
           matched_pairs = matched_pairs.+(key1._1 + "\t-\t" + key2._1 -> i)
           counter += 1
           previous_key=key2._1
-          //println(previous_key)
           //println(matched_pairs)
         }
         else if (i > maxi && counter > 0) {
