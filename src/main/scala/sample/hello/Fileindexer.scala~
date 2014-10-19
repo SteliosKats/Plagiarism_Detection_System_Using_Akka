@@ -32,7 +32,7 @@ object FileIndexer{
     var path_filename=new File(" ")
     var fileid=0
     var tot_files=0
-    val current_directory=new File("/root/Desktop/Webis-CPC-11")
+    val current_directory=new File("/root/Desktop/")
     val indexingSystem= ActorSystem("indexingsystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"indexing")
     for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
@@ -126,29 +126,29 @@ class LineSeparator extends Actor with ActorLogging {
       if (!references_ar.isEmpty || !references_de.isEmpty){
         if(references_ar.length==1 && references_de.isEmpty ) {
           val new_reference_array=IndexedSeq[String] (line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(0).toString()+"&id="+fileid.toString())
-          println(new_reference_array)
+          //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_de.length==1 && references_ar.isEmpty){
           val new_reference_array= IndexedSeq[String] (line.substring(0,references_de(references_de.length -1)+1)+"@"+counter.toString()+"."+references_de(0).toString()+"&id="+fileid.toString())
-          println(new_reference_array)
+          //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.>(references_de.length) && !references_de.isEmpty){
           val reference_array=for(i <- 0 to (references_ar.length -2) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
           val new_reference_array=reference_array.++((line.substring(references_ar(references_ar.length -1),line.length())+"@"+counter.toString()+"."+references_ar(references_ar.length -1).toString()+"&id="+fileid.toString()).split("[\r\n]+"))
-          println(new_reference_array)
+          //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else if(references_ar.length.<(references_de.length)) {
           var reference_array=for( i <- 0 to (references_de.length -2) )yield line.substring(references_ar(i),references_de(i+1)+1)+"@"+counter.toString()+"."+references_de(i).toString()+"&id="+fileid.toString()
           val new_reference_array=reference_array.++((line.substring(0,references_de(0)+1)+"@"+counter.toString()+"."+(references_de(0) -1).toString()+"&id="+fileid.toString()).split("[\r\n]+")) //+"&"+counter.toString().length()
-          println(new_reference_array)
+          //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
         else{
           val new_reference_array=for(i <- 0 to (references_ar.length-1) )yield line.substring(references_ar(i),references_de(i)+1)+"@"+counter.toString()+"."+references_ar(i).toString()+"&id="+fileid.toString()
-          println(new_reference_array)
+          //println(new_reference_array)
           file_receiver_ref.!(return_references(new_reference_array,counter,fileid,0))
         }
 
@@ -178,11 +178,12 @@ class Algorithms_Execution extends Actor with ActorLogging{
       //println(citation_chunked_plag_doc_refs)
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
-      println(chunked_document_matches)
+      //println(chunked_document_matches)
 
     case Greedy_Citation_Tiling(source_doc_refs, plag_doc_refs) =>
-      val processed_source_doc_refs=MapProcessing(source_doc_refs)
-      val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
+      val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
+      val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
+      val tiled=GCTAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
 
   }
 
@@ -298,6 +299,11 @@ class Algorithms_Execution extends Actor with ActorLogging{
   }
 
   def ChunkPairMatchingCC(map1 :Map[String,Int],map2 :Map[String,Int]):Map[String,Int] ={
+    /*   -----------------------------------------------------------------------------------------------------------------------------  */
+    /*                                                                                                                                  */
+    /*                         This Function does the matcing on the chuncks found by the CitationChinkingAlgorithm                     */
+    /*                                                                                                                                  */
+    /*    ------------------------------------------------------------------------------------------------------------------------------*/
     var matched_pairs :Map[String,Int]=Map()
     for (key1 <- map1.seq){
       val array_keys1 :Array[String]=key1._1.replaceAll(",X","").split(",")
@@ -338,7 +344,12 @@ class Algorithms_Execution extends Actor with ActorLogging{
     return(matched_pairs)
   }
 
-  def GCTAlgorithm(map1 :Map[String,Int],map2 :Map[String,Int]):List[String] ={
+  def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
+    /*   -----------------------------------------------------------------------------------------------------------------------------  */
+    /*                                                                                                                                  */
+    /*                                           This Function implements the Greedy Citation Tiling Algorithm                          */
+    /*                                                                                                                                  */
+    /*    ------------------------------------------------------------------------------------------------------------------------------*/
      var longest_cit_patt :List[String]=List()
      var start_point :Int=0
      var first_time :Boolean=true
@@ -360,12 +371,15 @@ class Algorithms_Execution extends Actor with ActorLogging{
                count_non_matches=0
                first_time=false
                meet_X=false
+               println("1:"+key1._1+"\t"+start_posA+"\t"+start_posB)
          }
          else if(key1._1==key2._1 && first_time==false && count_non_matches.==(0) && key1._1!="X" ){
               tile_length+=1
               meet_X=true
+              first_time=false
+              println("2:"+key1._1+"\t"+tile_length)
          }
-         else if(key1._1.!=(key2._1) && tile_length.>(1) && key1._1!="X"){
+         else if(key1._1.!=(key2._1) && tile_length.>=(1)){
            count_non_matches+=1
            tile_length=0
            longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)
@@ -375,7 +389,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
 
        }
-
+       count_docB=0
      }
     if(meet_X==false){
       longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)

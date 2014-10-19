@@ -8,6 +8,7 @@ import java.io._
 import java.io.File
 import scala.collection.immutable.ListMap
 import scala.io.Source
+import scala.util.control.Breaks._
 import akka.routing.ActorRefRoutee
 import akka.routing.Router
 import akka.routing.RoundRobinRoutingLogic
@@ -347,54 +348,63 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
     /*                                                                                                                                  */
-    /*                                           This Function implements the Greedy Citation Tiling Algorithm                          */
+    /*                                           This Function implements the Greedy Citation Tiling Algorithm  (Still Working on it)   */
     /*                                                                                                                                  */
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
-     var longest_cit_patt :List[String]=List()
-     var start_point :Int=0
-     var first_time :Boolean=true
-     var count_non_matches :Int=0
-     var start_posA :Int=0
-     var start_posB :Int=0
-     var count_docA :Int=0
-     var count_docB :Int=0
-     var tile_length :Int=0
-     var meet_X :Boolean=false
-     for(key1 <- map1.seq){
-       count_docA+=1
-       for(key2 <- map2.seq){
-         count_docB+=1
-         if(key1._1==key2._1 && first_time==true && key1._1!="X"){
-               tile_length+=1
-               start_posA=count_docA
-               start_posB=count_docB
-               count_non_matches=0
-               first_time=false
-               meet_X=false
-               println("1:"+key1._1+"\t"+start_posA+"\t"+start_posB)
-         }
-         else if(key1._1==key2._1 && first_time==false && count_non_matches.==(0) && key1._1!="X" ){
-              tile_length+=1
-              meet_X=true
-              first_time=false
-              println("2:"+key1._1+"\t"+tile_length)
-         }
-         else if(key1._1.!=(key2._1) && tile_length.>=(1)){
-           count_non_matches+=1
-           tile_length=0
-           longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)
-           first_time=true
-           meet_X=true
-         }
+    val in1=map1.keys.toList.inits.toList.reverse
+    val in2=map2.keys.toList.inits.toList.reverse
+    println(in2)
+    var counter_external :Int=0
+    var counter_internal :Int=0
+    var inception_counter :Int=0
+    var tile_length=0
+    var longest_cit_patt :List [String]=List()
+    var skip_elems :Int=0
 
+    for(elem1 <- in1.seq.tail) {
+      counter_external += 1
+      inception_counter = counter_external
+      if(skip_elems!=0){
+        skip_elems=skip_elems - 1
+      }
+      else{
+      breakable {
+        for (elem2 <- in2.seq.tail) {
+          skip_elems=0
+          //println(elem2.apply(counter_internal))
+          counter_internal += 1
+          if (elem1.apply(counter_external - 1) == (elem2.apply(counter_internal - 1))) {
+            //println(elem1.apply(counter_external-1)+","+elem2.apply(counter_internal-1))
+            tile_length += 1
+            breakable {
+              for (i <- counter_internal to (in1.tail.size)) {
+                if (inception_counter < in1.tail.size) {
+                  inception_counter += 1
+                }
+                println(inception_counter + "\t" + in1.tail.size)
+                //println(in1.tail.apply(inception_counter-1).lastOption+"\t"+in2.tail.apply(i))
+                if (in1.tail.apply(inception_counter - 1).lastOption == in2.tail.apply(i).lastOption) {
+                  //println(in1.tail.apply(inception_counter - 1).lastOption + "\t" + in2.tail.apply(i).lastOption)
+                  skip_elems+=1
+                  tile_length += 1
+                }
+                else {
+                  longest_cit_patt = longest_cit_patt.+:(counter_external + "," + counter_internal + "," + tile_length)
+                  println(longest_cit_patt)
+                  tile_length = 0
+                  break()
+                }
+              }
+            }
+          println("ok")
+          break()
+          }
 
-       }
-       count_docB=0
-     }
-    if(meet_X==false){
-      longest_cit_patt=longest_cit_patt.+:(start_posA+","+start_posB+","+tile_length)
+        }
+      }
+      }
+      counter_internal=0
     }
-    println(longest_cit_patt)
-     return(longest_cit_patt)
+    return(longest_cit_patt)
   }
 }
