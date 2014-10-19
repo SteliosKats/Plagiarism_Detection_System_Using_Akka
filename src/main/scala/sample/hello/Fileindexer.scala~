@@ -179,12 +179,17 @@ class Algorithms_Execution extends Actor with ActorLogging{
       //println(citation_chunked_plag_doc_refs)
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
-      //println(chunked_document_matches)
+      println(chunked_document_matches)
 
     case Greedy_Citation_Tiling(source_doc_refs, plag_doc_refs) =>
+     // println(source_doc_refs)
+     // println(plag_doc_refs)
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
+      //println(processed_source_doc_refs)       ????
+      //println(processed_plag_doc_refs)
       val tiled=GCTAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
+      println(tiled)
 
   }
 
@@ -192,46 +197,50 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
     val doc_refs=for(key <- mapped_doc_refs.seq) yield (key._1.dropRight(4+key._2.toString().length()) -> key._2) //afairoume to &id=file_id apo to telos tou key String tou map
     //println(doc_refs)
-    var new_source_doc_refs :Map[String,Float] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length()).toFloat ) ).toMap
-
-    new_source_doc_refs=ListMap(new_source_doc_refs.toList.sortBy(_._2):_*)
-    var concat_row :Float= -1
-    var concat_ref=" "
+    var new_source_doc_refs :Map[String,String] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length())) ).toMap
+    var new_source_doc_refs2 :Map[String,Float]=Map()
     //println(new_source_doc_refs)
-    for(key <- new_source_doc_refs.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
-      if(!key._1.endsWith("]")){
-        concat_row=key._2
-        concat_ref=key._1
-      }
-      if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
-        new_source_doc_refs=new_source_doc_refs.+(concat_ref+key._1 -> concat_row)
-      }
-      new_source_doc_refs=new_source_doc_refs.-(key._1)
-    }
-
     var value_length1= -1
     var max_length= -1
     for(value <- new_source_doc_refs.values) {
-      val new_value=value.toString().substring(value.toString().lastIndexOf("."),value.toString().length()-1)
+      val new_value=value.substring(value.lastIndexOf("."),value.length()-1)
       value_length1=new_value.length()
       if(value_length1 > max_length){
         max_length=value_length1
       }
     }
 
-    for(key <- new_source_doc_refs.seq) {
-      val after_comma_str=key._2.toString().substring(key._2.toString().lastIndexOf(".")+1,key._2.toString().length())
+    for((key,value) <- new_source_doc_refs.seq) {
+      val after_comma_str=value.substring(value.lastIndexOf(".")+1,value.length())
       val after_comma=after_comma_str.length()
-      val pre_comma=key._2.toString().substring(0,key._2.toString().indexOf("."))
+      val pre_comma=value.substring(0,value.indexOf("."))
       if(after_comma < max_length) {
         val float_value = (pre_comma+"."+("0"*(max_length-after_comma)+after_comma_str)).toFloat
-        //println(float_value.toFloat)
-        new_source_doc_refs=new_source_doc_refs.-(key._1)
-        new_source_doc_refs=new_source_doc_refs.+(key._1 -> float_value.toFloat)
+        new_source_doc_refs2=new_source_doc_refs2.+(key -> float_value.toFloat)
+      }
+      else{
+        new_source_doc_refs2=new_source_doc_refs2.+(key -> value.toFloat)
       }
     }
+    new_source_doc_refs2=ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*)
 
-    return(ListMap(new_source_doc_refs.toList.sortBy(_._2):_*))
+    var concat_row :Float= -1
+    var concat_ref=" "
+    //println(new_source_doc_refs)
+
+    for(key <- new_source_doc_refs2.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
+      if(!key._1.endsWith("]")){
+        concat_row=key._2
+        concat_ref=key._1
+      }
+      if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
+        new_source_doc_refs2=new_source_doc_refs2.+(concat_ref+key._1 -> concat_row)
+      }
+      new_source_doc_refs2=new_source_doc_refs2.-(key._1)
+    }
+    //println(new_source_doc_refs)
+    //println(new_source_doc_refs2)
+    return(ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*))
 
   }
 
@@ -353,14 +362,12 @@ class Algorithms_Execution extends Actor with ActorLogging{
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val in1=map1.keys.toList.inits.toList.reverse
     val in2=map2.keys.toList.inits.toList.reverse
-    println(in2)
     var counter_external :Int=0
     var counter_internal :Int=0
     var inception_counter :Int=0
     var tile_length=0
     var longest_cit_patt :List [String]=List()
     var skip_elems :Int=0
-
     for(elem1 <- in1.seq.tail) {
       counter_external += 1
       inception_counter = counter_external
@@ -371,7 +378,6 @@ class Algorithms_Execution extends Actor with ActorLogging{
       breakable {
         for (elem2 <- in2.seq.tail) {
           skip_elems=0
-          //println(elem2.apply(counter_internal))
           counter_internal += 1
           if (elem1.apply(counter_external - 1) == (elem2.apply(counter_internal - 1))) {
             //println(elem1.apply(counter_external-1)+","+elem2.apply(counter_internal-1))
@@ -381,7 +387,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
                 if (inception_counter < in1.tail.size) {
                   inception_counter += 1
                 }
-                println(inception_counter + "\t" + in1.tail.size)
+                //println(inception_counter + "\t" + in1.tail.size)
                 //println(in1.tail.apply(inception_counter-1).lastOption+"\t"+in2.tail.apply(i))
                 if (in1.tail.apply(inception_counter - 1).lastOption == in2.tail.apply(i).lastOption) {
                   //println(in1.tail.apply(inception_counter - 1).lastOption + "\t" + in2.tail.apply(i).lastOption)
@@ -390,13 +396,12 @@ class Algorithms_Execution extends Actor with ActorLogging{
                 }
                 else {
                   longest_cit_patt = longest_cit_patt.+:(counter_external + "," + counter_internal + "," + tile_length)
-                  println(longest_cit_patt)
+                  //println(longest_cit_patt)
                   tile_length = 0
                   break()
                 }
               }
             }
-          println("ok")
           break()
           }
 
