@@ -33,7 +33,7 @@ object FileIndexer{
     var path_filename=new File(" ")
     var fileid=0
     var tot_files=0
-    val current_directory=new File("/root/Desktop/")
+    val current_directory=new File("/root/Desktop/Webis-CPC-11")
     val indexingSystem= ActorSystem("indexingsystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"indexing")
     for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
@@ -172,6 +172,8 @@ class Algorithms_Execution extends Actor with ActorLogging{
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
+      //println(processed_source_doc_refs)
+      //println(processed_plag_doc_refs)
 
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
@@ -179,30 +181,36 @@ class Algorithms_Execution extends Actor with ActorLogging{
       //println(citation_chunked_plag_doc_refs)
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
-      println(chunked_document_matches)
+      if(chunked_document_matches.isEmpty){
+        println("No Matches found for these two documents")
+      }
+      else{
+        println(chunked_document_matches)
+      }
 
     case Greedy_Citation_Tiling(source_doc_refs, plag_doc_refs) =>
-     // println(source_doc_refs)
-     // println(plag_doc_refs)
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
-      //println(processed_source_doc_refs)       ????
+      //println(processed_source_doc_refs)
       //println(processed_plag_doc_refs)
       val tiled=GCTAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
-      println(tiled)
+      if(tiled.isEmpty){
+        println("No Citation Tiles found for these two documents")
+      }
+      else{
+        println(tiled)
+      }
 
   }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
 
     val doc_refs=for(key <- mapped_doc_refs.seq) yield (key._1.dropRight(4+key._2.toString().length()) -> key._2) //afairoume to &id=file_id apo to telos tou key String tou map
-    //println(doc_refs)
     var new_source_doc_refs :Map[String,String] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length())) ).toMap
     var new_source_doc_refs2 :Map[String,Float]=Map()
-    //println(new_source_doc_refs)
     var value_length1= -1
     var max_length= -1
-    for(value <- new_source_doc_refs.values) {
+    for(value <- new_source_doc_refs.values) {      //se ayth th for vriskoume ta perissotera pshfia pou yparxoun sto value tou map meta thn ypodiastolh
       val new_value=value.substring(value.lastIndexOf("."),value.length()-1)
       value_length1=new_value.length()
       if(value_length1 > max_length){
@@ -210,6 +218,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
       }
     }
 
+    //se ayth th for symplhrwnoume ta ypoleipommena pshfia me vash ton megalytero arithmo pshfiwn meta thn ypodiastolh me osa mhdenika xreiazontai amesws meta thn ypodiastolh
     for((key,value) <- new_source_doc_refs.seq) {
       val after_comma_str=value.substring(value.lastIndexOf(".")+1,value.length())
       val after_comma=after_comma_str.length()
@@ -222,24 +231,22 @@ class Algorithms_Execution extends Actor with ActorLogging{
         new_source_doc_refs2=new_source_doc_refs2.+(key -> value.toFloat)
       }
     }
-    new_source_doc_refs2=ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*)
+    new_source_doc_refs2=ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*)      //sorting tou map me vash ta values
 
     var concat_row :Float= -1
     var concat_ref=" "
-    //println(new_source_doc_refs)
 
+    //h for ayth enwnei ta references pou arxizoun sto telos mias grammhs kai teleiwnoun sthn arxh ths epomenhs
     for(key <- new_source_doc_refs2.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
       if(!key._1.endsWith("]")){
         concat_row=key._2
         concat_ref=key._1
       }
-      if(!key._1.startsWith("[")){                                                     //concat_row ==(key._2 +1) &&
+      if(!key._1.startsWith("[")){
         new_source_doc_refs2=new_source_doc_refs2.+(concat_ref+key._1 -> concat_row)
       }
       new_source_doc_refs2=new_source_doc_refs2.-(key._1)
     }
-    //println(new_source_doc_refs)
-    //println(new_source_doc_refs2)
     return(ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*))
 
   }
@@ -357,7 +364,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
     /*                                                                                                                                  */
-    /*                                           This Function implements the Greedy Citation Tiling Algorithm  (Still Working on it)   */
+    /*                                           This Function implements the Greedy Citation Tiling Algorithm                          */
     /*                                                                                                                                  */
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val in1=map1.keys.toList.inits.toList.reverse
