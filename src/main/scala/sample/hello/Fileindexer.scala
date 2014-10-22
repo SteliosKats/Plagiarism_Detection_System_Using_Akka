@@ -26,7 +26,7 @@ case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,file
 case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int, poisoned_routees :Int)
 
 case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int])
-case class Greedy_Citation_Tiling(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int])
+case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int])
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
@@ -97,7 +97,7 @@ class FileReceiver extends Actor{
         val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
           //println(plag_doc_refs)
           algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
-          // //algo_router ! Greedy_Citation_Tiling(source_doc_refs,plag_doc_refs)
+          algo_router ! Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs)
 
         }
       }
@@ -188,17 +188,19 @@ class Algorithms_Execution extends Actor with ActorLogging{
         println(chunked_document_matches)
       }
 
-    case Greedy_Citation_Tiling(source_doc_refs, plag_doc_refs) =>
+    case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs) =>
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
-      //println(processed_source_doc_refs)
+
       //println(processed_plag_doc_refs)
-      val tiled=GCTAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
-      if(tiled.isEmpty){
+      //println(processed_source_doc_refs)
+
+      val lccs_string=LCCSAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
+      if(lccs_string.isEmpty){
         println("No Citation Tiles found for these two documents")
       }
       else{
-        println(tiled)
+        println("LCCS :"+lccs_string)
       }
 
   }
@@ -255,7 +257,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def CitationChinkingAlgorithm(processed_source_doc_refs :Map[String,Float],processed_plag_doc_refs :Map[String,Float]):Map[String,Int] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
     /*                                                                                                                                  */
-    /*                                           This Function implements the Citation Chunking (CC) Algorithm                          */
+    /*                       This Function implements the Citation Chunking (CC) Algorithm  (under Construction)                        */
     /*                                                                                                                                  */
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val fixed_source_keys= for(key <-processed_source_doc_refs.keySet) yield (key.substring(0,key.lastIndexOf("@")))
@@ -372,10 +374,58 @@ class Algorithms_Execution extends Actor with ActorLogging{
     return(matched_pairs)
   }
 
-  def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
+  def LCCSAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):String ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
     /*                                                                                                                                  */
     /*                                           This Function implements the Greedy Citation Tiling Algorithm                          */
+    /*                                                                                                                                  */
+    /*    ------------------------------------------------------------------------------------------------------------------------------*/
+    val fixed_source_keys= for(key <-map1.keySet) yield (key.substring(0,key.lastIndexOf("@")))
+    val fixed_plag_keys=for(key <-map2.keySet) yield (key.substring(0,key.lastIndexOf("@")))
+
+    val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
+    val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
+
+    var external_counter : Int=0
+    var internal_counter :Int=0
+    var pos_found :Int=0
+    var lccs_string :String=new String()
+    breakable{
+      for(key1 <- map1.keySet  if(source_matching_citations.contains(key1.substring(0,key1.lastIndexOf("@")))) ){
+        internal_counter=0
+        var found :Boolean =false
+        for(key2 <- map2.keySet if(found!=true)){
+            if(internal_counter< pos_found){
+               internal_counter+=1
+            }
+            else if(key1.substring(0,key1.lastIndexOf("@"))==key2.substring(0,key2.lastIndexOf("@")) ){
+               internal_counter+=1
+               pos_found=internal_counter
+               found= true
+               lccs_string=lccs_string+","+key1.substring(0,key1.lastIndexOf("@"))
+            }
+            internal_counter+=1
+        }
+        if(found==false){
+          break()
+        }
+
+      }
+    }
+    if(!lccs_string.isEmpty()){
+      return(lccs_string.substring(1))
+    }
+    else{
+      return(lccs_string)
+    }
+
+  }
+
+
+  def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
+    /*   -----------------------------------------------------------------------------------------------------------------------------  */
+    /*                                                                                                                                  */
+    /*                                           This Function implements the Greedy Citation Tiling Algorithm  (in Beta)               */
     /*                                                                                                                                  */
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val in1=map1.keys.toList.inits.toList.reverse

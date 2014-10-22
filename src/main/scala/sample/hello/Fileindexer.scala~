@@ -33,7 +33,7 @@ object FileIndexer{
     var path_filename=new File(" ")
     var fileid=0
     var tot_files=0
-    val current_directory=new File("/root/Desktop/Webis-CPC-11")
+    val current_directory=new File("/root/Desktop/")
     val indexingSystem= ActorSystem("indexingsystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"indexing")
     for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
@@ -94,10 +94,10 @@ class FileReceiver extends Actor{
         val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
         //println(source_doc_refs)
         for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
-          val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
+        val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
           //println(plag_doc_refs)
           algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
-          algo_router ! Greedy_Citation_Tiling(source_doc_refs,plag_doc_refs)
+          // //algo_router ! Greedy_Citation_Tiling(source_doc_refs,plag_doc_refs)
 
         }
       }
@@ -206,12 +206,14 @@ class Algorithms_Execution extends Actor with ActorLogging{
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
 
     val doc_refs=for(key <- mapped_doc_refs.seq) yield (key._1.dropRight(4+key._2.toString().length()) -> key._2) //afairoume to &id=file_id apo to telos tou key String tou map
-    var new_source_doc_refs :Map[String,String] =(for(key <- doc_refs.keys) yield (key.substring(0,key.lastIndexOf("@")) -> key.substring(key.lastIndexOf("@")+1,key.length())) ).toMap
+    var new_source_doc_refs :Map[String,String] =(for(key <- doc_refs) yield (key._1 -> key._1.substring(key._1.lastIndexOf("@")+1,key._1.length())) ).toMap
     var new_source_doc_refs2 :Map[String,Float]=Map()
+    //println(doc_refs)
+    //println(new_source_doc_refs)
     var value_length1= -1
     var max_length= -1
     for(value <- new_source_doc_refs.values) {      //se ayth th for vriskoume ta perissotera pshfia pou yparxoun sto value tou map meta thn ypodiastolh
-      val new_value=value.substring(value.lastIndexOf("."),value.length()-1)
+    val new_value=value.substring(value.lastIndexOf("."),value.length()-1)
       value_length1=new_value.length()
       if(value_length1 > max_length){
         max_length=value_length1
@@ -232,17 +234,16 @@ class Algorithms_Execution extends Actor with ActorLogging{
       }
     }
     new_source_doc_refs2=ListMap(new_source_doc_refs2.toList.sortBy(_._2):_*)      //sorting tou map me vash ta values
-
     var concat_row :Float= -1
     var concat_ref=" "
 
     //h for ayth enwnei ta references pou arxizoun sto telos mias grammhs kai teleiwnoun sthn arxh ths epomenhs
-    for(key <- new_source_doc_refs2.seq if(!key._1.startsWith("[") || !key._1.endsWith("]")) ){
-      if(!key._1.endsWith("]")){
+    for(key <- new_source_doc_refs2.seq if(!key._1.contains("[") || !key._1.contains("]")) ){
+      if(!key._1.contains("]")){
         concat_row=key._2
-        concat_ref=key._1
+        concat_ref=key._1.substring(0,key._1.lastIndexOf("@"))
       }
-      if(!key._1.startsWith("[")){
+      if(!key._1.contains("[")){
         new_source_doc_refs2=new_source_doc_refs2.+(concat_ref+key._1 -> concat_row)
       }
       new_source_doc_refs2=new_source_doc_refs2.-(key._1)
@@ -257,40 +258,50 @@ class Algorithms_Execution extends Actor with ActorLogging{
     /*                                           This Function implements the Citation Chunking (CC) Algorithm                          */
     /*                                                                                                                                  */
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
-    val source_matching_citations= (processed_source_doc_refs.keySet.--((processed_source_doc_refs.keySet.--(processed_plag_doc_refs.keySet))))
-    val plag_matching_citations= (processed_plag_doc_refs.keySet.--((processed_plag_doc_refs.keySet.--(processed_source_doc_refs.keySet))))
-    //println(source_matching_citations)
-    //println(plag_matching_citations)
+    val fixed_source_keys= for(key <-processed_source_doc_refs.keySet) yield (key.substring(0,key.lastIndexOf("@")))
+    val fixed_plag_keys=for(key <-processed_plag_doc_refs.keySet) yield (key.substring(0,key.lastIndexOf("@")))
+
+    val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
+    val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
+
     var counted_non_matched=0   // counts the non matched citations between two documents and marks them as X
     var current_ref_pointer=0   // points the element on the map where the next search for matching citation should start
     var for_counter=0   // a counter for the inner for in order to skip preceding elements already encountered in previous fors in order to search from the current_ref_pointer and after
     var matched_key=new String()    //The string that will be stored as key element in the Citation Chunking map
     var mapped_cc :Map[String,Int]=Map()
-    for( plag_key1 <- processed_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1))){
-    var found :Boolean=false
+
+    /* Variables to fix the string keys and remove unwanted following substing */
+    var fixed_key1=new String()
+    var fixed_key2= new String()
+    /* Variables to fix the string keys and remove unwanted following substing */
+
+    for( plag_key1 <- processed_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1.substring(0,plag_key1._1.lastIndexOf("@"))))){
+      fixed_key1=plag_key1._1.substring(0,plag_key1._1.lastIndexOf("@"))
+      var found :Boolean=false
       //println(plag_key1._1)
       for_counter=0
       for(plag_key2 <- processed_source_doc_refs.seq if(found!=true)){
+        fixed_key2=plag_key2._1.substring(0,plag_key2._1.lastIndexOf("@"))
         //println(current_ref_pointer+"\t"+plag_key1._1+"\t"+plag_key2._1+"\t NonMatched:"+counted_non_matched)
         if(current_ref_pointer!=for_counter){
           for_counter+=1
         }
         else {
-          if (plag_key1._1 != plag_key2._1) {
+          if (fixed_key1 != fixed_key2) {
             //non matching citations (X)
             counted_non_matched += 1
             //matched_key = new String()
           }
-          else if (plag_key1._1 == plag_key2._1 && mapped_cc.isEmpty) {
+          else if (fixed_key1 == fixed_key2 && mapped_cc.isEmpty) {
             //An vriskoume matching citation kai einai to prwto pou vriskoume
             current_ref_pointer +=1
             counted_non_matched = 0
-            mapped_cc = mapped_cc.+(plag_key1._1 -> 1)
-            matched_key=plag_key1._1
+            mapped_cc = mapped_cc.+(fixed_key1 -> 1)
+            matched_key=fixed_key1
             found = true
           }
-          else if (plag_key1._1 == plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
-            matched_key = matched_key + ","+"X,"*counted_non_matched + plag_key1._1
+          else if (fixed_key1 == fixed_key2 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
+            matched_key = matched_key + ","+"X,"*counted_non_matched + fixed_key1
             val cc_chunk = matched_key
             val cc_number_of_matched = mapped_cc.last._2 + 1
             mapped_cc = mapped_cc.-(mapped_cc.last._1)
@@ -299,9 +310,9 @@ class Algorithms_Execution extends Actor with ActorLogging{
             counted_non_matched = 0
             found = true
           }
-          else if(plag_key1._1==plag_key2._1 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
+          else if(fixed_key1==fixed_key2 && !mapped_cc.isEmpty && (mapped_cc.last._2 < counted_non_matched) && found!=true){
             matched_key=new String()
-            matched_key = plag_key1._1
+            matched_key = fixed_key1
             val cc_chunk = matched_key
             val cc_number_of_matched = 1
             mapped_cc = mapped_cc.+(cc_chunk -> cc_number_of_matched)
@@ -382,41 +393,42 @@ class Algorithms_Execution extends Actor with ActorLogging{
         skip_elems=skip_elems - 1
       }
       else{
-      breakable {
-        for (elem2 <- in2.seq.tail) {
-          skip_elems=0
-          counter_internal += 1
-          if (elem1.apply(counter_external - 1) == (elem2.apply(counter_internal - 1))) {
-            //println(elem1.apply(counter_external-1)+","+elem2.apply(counter_internal-1))
-            tile_length += 1
-            breakable {
-              for (i <- counter_internal to (in1.tail.size)) {
-                if (inception_counter < in1.tail.size) {
-                  inception_counter += 1
-                }
-                //println(inception_counter + "\t" + in1.tail.size)
-                //println(in1.tail.apply(inception_counter-1).lastOption+"\t"+in2.tail.apply(i))
-                if (in1.tail.apply(inception_counter - 1).lastOption == in2.tail.apply(i).lastOption) {
-                  //println(in1.tail.apply(inception_counter - 1).lastOption + "\t" + in2.tail.apply(i).lastOption)
-                  skip_elems+=1
-                  tile_length += 1
-                }
-                else {
-                  longest_cit_patt = longest_cit_patt.+:(counter_external + "," + counter_internal + "," + tile_length)
-                  //println(longest_cit_patt)
-                  tile_length = 0
-                  break()
+        breakable {
+          for (elem2 <- in2.seq.tail) {
+            skip_elems=0
+            counter_internal += 1
+            if (elem1.apply(counter_external - 1) == (elem2.apply(counter_internal - 1))) {
+              //println(elem1.apply(counter_external-1)+","+elem2.apply(counter_internal-1))
+              tile_length += 1
+              breakable {
+                for (i <- counter_internal to (in1.tail.size)) {
+                  if (inception_counter < in1.tail.size) {
+                    inception_counter += 1
+                  }
+                  //println(inception_counter + "\t" + in1.tail.size)
+                  //println(in1.tail.apply(inception_counter-1).lastOption+"\t"+in2.tail.apply(i))
+                  if (in1.tail.apply(inception_counter - 1).lastOption == in2.tail.apply(i).lastOption) {
+                    //println(in1.tail.apply(inception_counter - 1).lastOption + "\t" + in2.tail.apply(i).lastOption)
+                    skip_elems+=1
+                    tile_length += 1
+                  }
+                  else {
+                    longest_cit_patt = longest_cit_patt.+:(counter_external + "," + counter_internal + "," + tile_length)
+                    //println(longest_cit_patt)
+                    tile_length = 0
+                    break()
+                  }
                 }
               }
+              break()
             }
-          break()
-          }
 
+          }
         }
-      }
       }
       counter_internal=0
     }
     return(longest_cit_patt)
   }
 }
+
