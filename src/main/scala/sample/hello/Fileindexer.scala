@@ -31,19 +31,29 @@ case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],pla
 object FileIndexer{
   def main(args: Array[String]): Unit = {
     var path_filename=new File(" ")
-    var fileid=0
-    var tot_files=0
+    var fileid=1
+    var tot_files=1
     val current_directory=new File("/root/Desktop/")
-    val indexingSystem= ActorSystem("indexingsystem")//,ConfigFactory.load(application_is_remote))
-    val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"indexing")
-    for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
+    val indexingSystem= ActorSystem("CitationExtractionSystem")//,ConfigFactory.load(application_is_remote))
+    val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
+    var filenames_ids :Map[String,Int]=Map()
+    var source_str=readLine("Enter The Source File's Name To Be Checked for Citation-based Plagiarism Detection:")
+    while(!new File(current_directory+"/"+source_str).exists()){
+      source_str=readLine("File Not found!Try Again with different file or check your spelling:")
+    }
+    val source_file=new File(current_directory+"/"+source_str)
+    filenames_ids=filenames_ids.+(source_str ->1)
+
+    for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str )){
       tot_files+=1
     }
-    for(file <- current_directory.listFiles if file.getName endsWith ".txt"){
-      path_filename=new File(file.toString())
-      //println(path_filename)
-      fileid+=1
 
+    actor_ref_file ! file_properties(source_file,1,tot_files)
+    for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str) ){
+      path_filename=new File(file.toString())
+      //println(file)
+      fileid+=1
+      filenames_ids=filenames_ids.+(file.getName() ->fileid)
       actor_ref_file ! file_properties(path_filename,fileid,tot_files)
     }
   }
@@ -172,13 +182,9 @@ class Algorithms_Execution extends Actor with ActorLogging{
     case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
-      //println(processed_source_doc_refs)
-      //println(processed_plag_doc_refs)
 
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
-      //println(citation_chunked_source_doc_refs)
-      //println(citation_chunked_plag_doc_refs)
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
       if(chunked_document_matches.isEmpty){
@@ -192,8 +198,6 @@ class Algorithms_Execution extends Actor with ActorLogging{
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
 
-      //println(processed_plag_doc_refs)
-      //println(processed_source_doc_refs)
 
       val lccs_string=LCCSAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       if(lccs_string.isEmpty){
@@ -385,7 +389,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
     val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
     val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
-
+    //println(source_matching_citations)
+    //println(plag_matching_citations)
+   // println(map1)
+    //println(map2)
     var external_counter : Int=0
     var internal_counter :Int=0
     var pos_found :Int=0
@@ -397,14 +404,18 @@ class Algorithms_Execution extends Actor with ActorLogging{
         for(key2 <- map2.keySet if(found!=true)){
             if(internal_counter< pos_found){
                internal_counter+=1
+              println("Inside if:"+internal_counter)
             }
             else if(key1.substring(0,key1.lastIndexOf("@"))==key2.substring(0,key2.lastIndexOf("@")) ){
                internal_counter+=1
                pos_found=internal_counter
+                println("Porsition_ Found :"+pos_found+"\t Key:"+key1.substring(0,key1.lastIndexOf("@")))
                found= true
                lccs_string=lccs_string+","+key1.substring(0,key1.lastIndexOf("@"))
             }
-            internal_counter+=1
+            else {
+              internal_counter += 1
+            }
         }
         if(found==false){
           break()
