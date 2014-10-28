@@ -389,10 +389,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
     val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
     val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
-    //println(source_matching_citations)
-    //println(plag_matching_citations)
-   // println(map1)
-    //println(map2)
+
     var external_counter : Int=0
     var internal_counter :Int=0
     var pos_found :Int=0
@@ -404,12 +401,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
         for(key2 <- map2.keySet if(found!=true)){
             if(internal_counter< pos_found){
                internal_counter+=1
-              println("Inside if:"+internal_counter)
             }
             else if(key1.substring(0,key1.lastIndexOf("@"))==key2.substring(0,key2.lastIndexOf("@")) ){
                internal_counter+=1
                pos_found=internal_counter
-                println("Porsition_ Found :"+pos_found+"\t Key:"+key1.substring(0,key1.lastIndexOf("@")))
                found= true
                lccs_string=lccs_string+","+key1.substring(0,key1.lastIndexOf("@"))
             }
