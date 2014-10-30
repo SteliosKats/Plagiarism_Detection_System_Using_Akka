@@ -389,44 +389,70 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
     val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
     val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
-
-    var external_counter : Int=0
-    var internal_counter :Int=0
-    var pos_found :Int=0
-    var lccs_string :String=new String()
-    breakable{
-      for(key1 <- map1.keySet  if(source_matching_citations.contains(key1.substring(0,key1.lastIndexOf("@")))) ){
-        internal_counter=0
-        var found :Boolean =false
-        for(key2 <- map2.keySet if(found!=true)){
-            if(internal_counter< pos_found){
-               internal_counter+=1
-            }
-            else if(key1.substring(0,key1.lastIndexOf("@"))==key2.substring(0,key2.lastIndexOf("@")) ){
-               internal_counter+=1
-               pos_found=internal_counter
-               found= true
-               lccs_string=lccs_string+","+key1.substring(0,key1.lastIndexOf("@"))
-            }
-            else {
-              internal_counter += 1
-            }
-        }
-        if(found==false){
-          break()
-        }
-
+    var LCCS_str :String=new String()
+    var position :Int=0
+    var max_elements :Int=0
+    //val tup_le=ASimpleFunction(map1,map2,source_matching_citations,0)
+    //position=tup_le._2
+    //println(tup_le._1)
+    while(position.<=(source_matching_citations.seq.size)) {
+      val tup_le2 = ASimpleFunction(map1, map2, source_matching_citations, position)
+      position = tup_le2._2
+      if(tup_le2._3 >= max_elements){
+        max_elements=tup_le2._3
+        LCCS_str=tup_le2._1
       }
     }
-    if(!lccs_string.isEmpty()){
-      return(lccs_string.substring(1))
-    }
-    else{
-      return(lccs_string)
-    }
+    return(LCCS_str)
 
   }
 
+
+def ASimpleFunction(map1 :Map[String,Float],map2 :Map[String,Float],source_matching_citations :Set[String],next_start_pos :Int):(String,Int,Int) ={
+  var first_occurence :Int=0
+
+  var LCCS_arr :Map[String,Int]=Map()
+  var external_counter : Int=0
+  var internal_counter :Int=0
+  var elem_counter :Int =0
+
+  var pos_found :Int=0
+  var pos_found2 :Int=0
+  var lccs_string :String=new String()
+    for(key1 <- map1.keySet  if(source_matching_citations.contains(key1.substring(0,key1.lastIndexOf("@")))) ) {
+      //println(key1)
+      internal_counter = 0
+      external_counter += 1
+      var found: Boolean = false
+      if (external_counter >= next_start_pos){
+        //println("ok"+external_counter+"\t"+next_start_pos)
+        for (key2 <- map2.keySet if (found != true)) {
+          //println(key2)
+          if (internal_counter < pos_found) {
+            internal_counter += 1
+          }
+          else if (key1.substring(0, key1.lastIndexOf("@")) == key2.substring(0, key2.lastIndexOf("@"))) {
+            internal_counter += 1
+            pos_found = internal_counter
+            pos_found2=external_counter
+            found = true
+            elem_counter += 1
+            lccs_string = lccs_string + "," + key1.substring(0, key1.lastIndexOf("@"))
+            //println(lccs_string)
+            //println("Position found:"+pos_found2)
+          }
+          else {
+            internal_counter += 1
+          }
+        }
+        if(found==false){
+          //println(lccs_string+pos_found2)
+            return(lccs_string.substring(1),pos_found2+1,elem_counter)
+        }
+      }
+    }
+  return(lccs_string.substring(1),pos_found2,elem_counter)
+}
 
   def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
