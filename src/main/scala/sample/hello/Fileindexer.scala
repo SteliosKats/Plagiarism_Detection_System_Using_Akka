@@ -33,7 +33,7 @@ object FileIndexer{
     var path_filename=new File(" ")
     var fileid=1
     var tot_files=1
-    val current_directory=new File("/root/Desktop/")
+    val current_directory=new File("/root/Desktop/Webis-CPC-11/")
     val indexingSystem= ActorSystem("CitationExtractionSystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
     var filenames_ids :Map[String,Int]=Map()
@@ -206,7 +206,6 @@ class Algorithms_Execution extends Actor with ActorLogging{
       else{
         println("LCCS :"+lccs_string)
       }
-
   }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={
@@ -280,11 +279,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
     var fixed_key1=new String()
     var fixed_key2= new String()
     /* Variables to fix the string keys and remove unwanted following substing */
-
     for( plag_key1 <- processed_source_doc_refs.seq if(source_matching_citations.contains(plag_key1._1.substring(0,plag_key1._1.lastIndexOf("@"))))){
       fixed_key1=plag_key1._1.substring(0,plag_key1._1.lastIndexOf("@"))
       var found :Boolean=false
-      //println(plag_key1._1)
+      //println(fixed_key1)
       for_counter=0
       for(plag_key2 <- processed_source_doc_refs.seq if(found!=true)){
         fixed_key2=plag_key2._1.substring(0,plag_key2._1.lastIndexOf("@"))
@@ -294,13 +292,15 @@ class Algorithms_Execution extends Actor with ActorLogging{
         }
         else {
           if (fixed_key1 != fixed_key2) {
+            //println(plag_key1+"\t fixed_key_1:"+fixed_key1+"\t fixed_key_2"+fixed_key2)
             //non matching citations (X)
             counted_non_matched += 1
             //matched_key = new String()
           }
           else if (fixed_key1 == fixed_key2 && mapped_cc.isEmpty) {
             //An vriskoume matching citation kai einai to prwto pou vriskoume
-            current_ref_pointer +=1
+            //current_ref_pointer +=1
+            current_ref_pointer=current_ref_pointer + 1 + counted_non_matched
             counted_non_matched = 0
             mapped_cc = mapped_cc.+(fixed_key1 -> 1)
             matched_key=fixed_key1
@@ -308,6 +308,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
           }
           else if (fixed_key1 == fixed_key2 && !mapped_cc.isEmpty && (mapped_cc.last._2 >= counted_non_matched) && found!=true) {
             matched_key = matched_key + ","+"X,"*counted_non_matched + fixed_key1
+            //println(matched_key+counted_non_matched)
             val cc_chunk = matched_key
             val cc_number_of_matched = mapped_cc.last._2 + 1
             mapped_cc = mapped_cc.-(mapped_cc.last._1)
@@ -395,12 +396,14 @@ class Algorithms_Execution extends Actor with ActorLogging{
     //val tup_le=ASimpleFunction(map1,map2,source_matching_citations,0)
     //position=tup_le._2
     //println(tup_le._1)
-    while(position.<=(source_matching_citations.seq.size)) {
-      val tup_le2 = ASimpleFunction(map1, map2, source_matching_citations, position)
-      position = tup_le2._2
-      if(tup_le2._3 >= max_elements){
-        max_elements=tup_le2._3
-        LCCS_str=tup_le2._1
+    if(!source_matching_citations.isEmpty) {
+      while (position.<=(source_matching_citations.seq.size)) {
+        val tup_le2 = ASimpleFunction(map1, map2, source_matching_citations, position)
+        position = tup_le2._2
+        if (tup_le2._3 >= max_elements) {
+          max_elements = tup_le2._3
+          LCCS_str = tup_le2._1
+        }
       }
     }
     return(LCCS_str)
