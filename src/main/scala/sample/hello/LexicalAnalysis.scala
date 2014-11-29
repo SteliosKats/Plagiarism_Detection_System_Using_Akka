@@ -12,21 +12,18 @@ import java.util.Properties
 import edu.stanford.nlp.ling.CoreAnnotations.{TokenBeginAnnotation, LemmaAnnotation, TokensAnnotation, SentencesAnnotation}
 import edu.stanford.nlp.ling.{CoreAnnotations, CoreLabel, IndexedWord}
 import scala.collection.immutable.ListMap
-
-import scala.concurrent.Await
-import akka.pattern.ask
-import akka.util.Timeout
-import scala.concurrent.duration._
+import scala.util.control.Breaks._
 
 /**
  * Created by root on 11/2/14.
  */
 case class file_properties2(filename :File,fileid :Int, total_files: Int,source_str :String)
-case class routingmessages2(fileline :String, line_leng :Int,counter :Int,temp_leng:Int, ref_act :ActorRef ,file_name :String)
+case class routingmessages2(fileline :String, line_leng :Int,counter :Int,temp_leng:Int, ref_act :ActorRef ,file_name :String, file_lines_size :Int)
 case class source_file_transf(source_file_name: String,listed_lemmas_source :List[String])
-case class plag_file_transf(plag_file_name: String,listed_lemmas_plag :Map[String,Int])
+case class plag_file_transf(plag_file_name: String,listed_lemmas_plag :Map[String,Int], file_lines_size :Int)
 case class returned_line_lemmas(listed_lemmas :Map[String,Int],filename :String)
 case class import_plag_file(plag_file:File)
+case class compare_source_plag(source_file :List[String],plag_file :List[String])
 
 object  LexicalAnalysis {
   def main(args: Array[String]): Unit = {
@@ -80,7 +77,7 @@ class SourceFileAnalysis extends Actor {
         counter+=1
         line_leng= line_leng+line.length()
         //println(self+","+sender())
-        router.route(routingmessages2(line, line_leng,counter,line.length(), self ,source_file_name), sender())
+        router.route(routingmessages2(line, line_leng,counter,line.length(), self ,source_file_name,-1), sender())
       }
       router.route(Broadcast(PoisonPill), sender())
     case returned_line_lemmas(listed_lemmas,filename) =>
@@ -115,9 +112,8 @@ class SourceFileAnalysis extends Actor {
         }
 
         val listed_lemmas: List[String] = source_lemmas.keys.toList
-        println(listed_lemmas)
+        //println(listed_lemmas)
         context.actorSelection("../plag_analysis").!(source_file_transf(source_file_name, listed_lemmas))
-        //println(context.actorSelection("../plag_analysis"))
 
       }
     case Terminated (corpse) =>
@@ -139,7 +135,7 @@ class LineLemmaExtractor extends Actor with ActorLogging{
   def manOf[T: Manifest](t: T): Manifest[T] = manifest[T]
   def receive ={
 
-    case routingmessages2(line,line_leng,counter,temp_leng, source_receiver_ref,filename) =>
+    case routingmessages2(line,line_leng,counter,temp_leng, source_receiver_ref,filename,file_lines_size) =>
 
       // create the processor
       val props:Properties=new Properties()
@@ -182,7 +178,7 @@ class LineLemmaExtractor extends Actor with ActorLogging{
       //println(source_receiver_ref)
       if(source_receiver_ref.toString().contains("plag_analysis")){
         //println(context.actorSelection(source_receiver_ref.path.parent))
-        context.actorSelection(source_receiver_ref.path.parent).!(plag_file_transf(filename,lemma_map))(context.parent)
+        context.actorSelection(source_receiver_ref.path.parent).!(plag_file_transf(filename,lemma_map,file_lines_size))(context.parent)
       }
       else if (source_receiver_ref.toString().contains("source_analysis")){
         //context.actorSelection("../plag_analysis").!(source_file_transf(source_file_name, listed_lemmas))
@@ -202,35 +198,28 @@ class PlagFileAnalysis extends Actor {
   var source_filename = new String()
   val linediting=context.actorOf(Props[LineSeparate], name= "line_separate")
   var file_counter=0
-  var counter_terminated :Int=0
+  var counter_terminated :Int=1
   var plag_lemmas :Map[String,Int]=Map()
-
-  implicit val timeout= Timeout(5 seconds)
+  val lex_comparison=context.actorOf(Props[ActualLexComparison], name= "lexical_comparison")
+  var source_file_lemmas :List[String]= List()
 
   def receive = {
     case source_file_transf(source_file_name,listed_lemmas_source) =>
-
+      source_file_lemmas=listed_lemmas_source
       source_filename=source_file_name
       var path_filename=new File(" ")
       val current_directory=new File("/root/Desktop/")
-      //println(source_file_name)
       for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_file_name) ){
-        //println(source_file_name+"+"+file.getName())
         path_filename=new File(file.toString())
-        println(path_filename)
-        val future= linediting ? import_plag_file(file)
-        val result= Await.result(future,timeout.duration).asInstanceOf[String]
+        //println(path_filename)
+        linediting.!(import_plag_file(path_filename))
       }
       val file_done :Boolean=true
 
-    case plag_file_transf(plag_filename, listed_lemmas_plag) =>
-      counter_terminated+=1
+    case plag_file_transf(plag_filename, listed_lemmas_plag,file_lines_size) =>
       //println("Source File:"+source_filename+"\t Plagiarised File:"+plag_filename+"\t  mapped_lemma:"+listed_lemmas_plag)
-      if(!listed_lemmas_plag.isEmpty) {
+      if(counter_terminated==file_lines_size) {
         plag_lemmas = plag_lemmas.++(listed_lemmas_plag)
-        println(plag_lemmas)
-      }
-      if(counter_terminated==5) {
         plag_lemmas = ListMap(plag_lemmas.toList.sortBy {
           _._2
         }: _*)
@@ -256,11 +245,14 @@ class PlagFileAnalysis extends Actor {
         }
 
         val listed_lemmas: List[String] = plag_lemmas.keys.toList
-        counter_terminated=0
-
-        println(listed_lemmas+",\t"+source_filename)
-        //println(context.actorSelection("../plag_analysis"))
-
+        plag_lemmas=Map()
+        counter_terminated=1
+        //println(listed_lemmas+",\t"+source_filename)
+        lex_comparison.!(compare_source_plag(source_file_lemmas,listed_lemmas))
+      }
+      else{
+          counter_terminated+=1
+          plag_lemmas = plag_lemmas.++(listed_lemmas_plag)
       }
 
     case _ =>
@@ -273,8 +265,8 @@ class PlagFileAnalysis extends Actor {
 class LineSeparate extends Actor {
   var counter_terminated :Int=0
   var external_counter: Int=0
-  val router2: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[LineLemmaExtractor]), "router2")
-  /* Creating A router to route "Workers" to ectract citations for each line of the file */
+  //val router2: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[LineLemmaExtractor]), "router2")
+  val linediting=context.actorOf(Props[LineLemmaExtractor], name= "line_separate_plag")
 
   def receive = {
 
@@ -284,12 +276,72 @@ class LineSeparate extends Actor {
       var line_leng =0
       counter_terminated=0
       for (line <- Source.fromFile(path_filename).getLines()) {
-        println(line)
+        val file_lines_size=Source.fromFile(path_filename).getLines().size
         line_leng= line_leng+line.length()
+        //println(file_lines_size)
         counter += 1
-        router2.!(routingmessages2(line, line_leng,counter,line.length(), self ,path_filename.getName()))
+        linediting.!(routingmessages2(line, line_leng,counter,line.length(), self ,path_filename.getName(),file_lines_size))
+        //router2.!(routingmessages2(line, line_leng,counter,line.length(), self ,path_filename.getName()))
       }
-      sender().!("Done!")
+    case _ =>
+      println("The line of the current file has not received")
   }
 
 }
+
+class ActualLexComparison extends Actor {
+
+  def receive ={
+    case compare_source_plag(source_file,plag_file) =>
+      val fixed_source_file :List[String]=for(key <- source_file)yield key.substring(0,key.lastIndexOf("@"))
+      val fixed_plag_file :List[String]=for(key <- plag_file)yield key.substring(0,key.lastIndexOf("@"))
+      println("fixed source file:"+fixed_source_file+" \t \t fixed plagiarism file:"+fixed_plag_file)
+
+      var counter : Int =0
+      var temp_str= ""
+      var fi_frg : Map[Int,Int]=Map()
+      var abs_seq=0
+      //println(fixed_source_file.length)
+      val min_size= if((fixed_source_file.length-1) >= (fixed_plag_file.length-1)) (fixed_plag_file.length-1) else (fixed_source_file.length-1)
+      for (i <- 0 to (fixed_source_file.length-1)){
+        for(j <-0 to (fixed_plag_file.length -1) if(fixed_source_file(i)==fixed_plag_file(j)) ){
+          if((i==0 || j==0) || fixed_source_file(i-1)!=fixed_plag_file(j-1)) {
+            //temp_str=temp_str+fixed_source_file(i)+" "   //","
+            //println(temp_str)
+            //abs_seq += 1
+            while ( ((i + counter) <= (fixed_source_file.length-1)) && ((j + counter) <= (fixed_plag_file.length -1)) ){
+              //println(counter)
+              if (fixed_plag_file(j + counter) == fixed_source_file(i + counter)) {
+                abs_seq+=1
+                temp_str = temp_str+ fixed_plag_file(j + counter)+" "  //","
+              }
+              else {
+                counter = fixed_source_file.length
+              }
+              counter += 1
+            }
+
+            counter=0
+          }
+          println(temp_str)
+          if(fi_frg.containsKey(abs_seq)){
+            val new_value :Int=fi_frg.apply(abs_seq)+abs_seq
+            //common_sequences.put(temp_str,new_value)
+            fi_frg = fi_frg.+(abs_seq -> new_value)
+          }
+          else {
+            fi_frg = fi_frg.+(abs_seq -> abs_seq)
+          }
+          abs_seq=0
+          temp_str=""
+          //println(temp_str)
+
+        }
+
+      }
+      println("Common Sequences:"+fi_frg)
+  }
+
+}
+
+
