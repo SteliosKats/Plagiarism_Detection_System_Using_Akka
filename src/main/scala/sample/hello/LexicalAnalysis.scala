@@ -361,10 +361,10 @@ class Relevance extends Actor {
 
   def receive ={
     case calculate_features(source_file,plag_file,fi_frg,seq_conc) =>
-      var relevance_map :Map[String,Int]=Map()
+      var relevance_map :Map[String,Float]=Map()
       var Relevance_of_Sequnces :Array[Int]= Array.empty
       var counter :Int =0
-      var ginomeno :Int=1
+      var ginomeno :Float=1
       for(key2 <- seq_conc.keys){
         //println(key2)
          val wk_Arr_Dr :Map[String,Int]=occ_wk(key2.split(" +"),source_file)
@@ -378,7 +378,7 @@ class Relevance extends Actor {
          val array_plag :Array[Int]=wk_Arr_Ds.values.toArray      //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto plagiarised file tou sygkekrimenou
          println(array_plag(0))
          for(k <- 0 to (key2.split(" +").length-1)){
-                ginomeno=ginomeno*( 2/(array_plag(k)+array_source(k)) )
+                ginomeno=ginomeno*( 2.toFloat/(array_plag(k).toFloat + array_source(k).toFloat) )
            println("Ginomeno:"+ginomeno)
          }
          val second_fraction=ginomeno
