@@ -12,7 +12,7 @@ import java.util.Properties
 import edu.stanford.nlp.ling.CoreAnnotations.{TokenBeginAnnotation, LemmaAnnotation, TokensAnnotation, SentencesAnnotation}
 import edu.stanford.nlp.ling.{CoreAnnotations, CoreLabel, IndexedWord}
 import scala.collection.immutable.ListMap
-import scala.util.control.Breaks._
+import scala.math.pow
 
 /**
  * Created by root on 11/2/14.
@@ -24,6 +24,7 @@ case class plag_file_transf(plag_file_name: String,listed_lemmas_plag :Map[Strin
 case class returned_line_lemmas(listed_lemmas :Map[String,Int],filename :String)
 case class import_plag_file(plag_file:File)
 case class compare_source_plag(source_file :List[String],plag_file :List[String])
+case class calculate_features(fixed_source_file :List[String],fixed_plag_file :List[String],fi_frg : Map[Int,Int],seq_conc :Map[String,Int])
 
 object  LexicalAnalysis {
   def main(args: Array[String]): Unit = {
@@ -200,7 +201,7 @@ class PlagFileAnalysis extends Actor {
   var file_counter=0
   var counter_terminated :Int=1
   var plag_lemmas :Map[String,Int]=Map()
-  val lex_comparison=context.actorOf(Props[ActualLexComparison], name= "lexical_comparison")
+  val fragment=context.actorOf(Props[Fragmentation], name= "fragmentation")
   var source_file_lemmas :List[String]= List()
 
   def receive = {
@@ -248,7 +249,7 @@ class PlagFileAnalysis extends Actor {
         plag_lemmas=Map()
         counter_terminated=1
         //println(listed_lemmas+",\t"+source_filename)
-        lex_comparison.!(compare_source_plag(source_file_lemmas,listed_lemmas))
+        fragment.!(compare_source_plag(source_file_lemmas,listed_lemmas))
       }
       else{
           counter_terminated+=1
@@ -289,26 +290,25 @@ class LineSeparate extends Actor {
 
 }
 
-class ActualLexComparison extends Actor {
-
+class Fragmentation extends Actor {
+  val relevance=context.actorOf(Props[Relevance], name= "relevance_features")
   def receive ={
     case compare_source_plag(source_file,plag_file) =>
       val fixed_source_file :List[String]=for(key <- source_file)yield key.substring(0,key.lastIndexOf("@"))
       val fixed_plag_file :List[String]=for(key <- plag_file)yield key.substring(0,key.lastIndexOf("@"))
       println("fixed source file:"+fixed_source_file+" \t \t fixed plagiarism file:"+fixed_plag_file)
-
+      var seq_conc :Map[String,Int]=Map()
       var counter : Int =0
       var temp_str= ""
       var fi_frg : Map[Int,Int]=Map()
       var abs_seq=0
+      var conc_counter :Int=0
       //println(fixed_source_file.length)
       val min_size= if((fixed_source_file.length-1) >= (fixed_plag_file.length-1)) (fixed_plag_file.length-1) else (fixed_source_file.length-1)
       for (i <- 0 to (fixed_source_file.length-1)){
         for(j <-0 to (fixed_plag_file.length -1) if(fixed_source_file(i)==fixed_plag_file(j)) ){
           if((i==0 || j==0) || fixed_source_file(i-1)!=fixed_plag_file(j-1)) {
-            //temp_str=temp_str+fixed_source_file(i)+" "   //","
-            //println(temp_str)
-            //abs_seq += 1
+
             while ( ((i + counter) <= (fixed_source_file.length-1)) && ((j + counter) <= (fixed_plag_file.length -1)) ){
               //println(counter)
               if (fixed_plag_file(j + counter) == fixed_source_file(i + counter)) {
@@ -323,14 +323,26 @@ class ActualLexComparison extends Actor {
 
             counter=0
           }
-          println(temp_str)
-          if(fi_frg.containsKey(abs_seq)){
+          //println(temp_str)
+          if(fi_frg.containsKey(abs_seq)){                   //if else gia ton ypologismo map Fragmentation features
             val new_value :Int=fi_frg.apply(abs_seq)+abs_seq
             //common_sequences.put(temp_str,new_value)
             fi_frg = fi_frg.+(abs_seq -> new_value)
           }
           else {
-            fi_frg = fi_frg.+(abs_seq -> abs_seq)
+            if(abs_seq!=0) {
+              fi_frg = fi_frg.+(abs_seq -> abs_seq)
+            }
+          }
+
+          if(seq_conc.containsKey(temp_str)){
+            val new_value2 :Int=seq_conc.apply(temp_str)+1
+            seq_conc=seq_conc.+(temp_str -> new_value2)
+          }
+          else{
+            if(!temp_str.isEmpty()) {
+              seq_conc = seq_conc.+(temp_str -> 1)
+            }
           }
           abs_seq=0
           temp_str=""
@@ -339,9 +351,55 @@ class ActualLexComparison extends Actor {
         }
 
       }
-      println("Common Sequences:"+fi_frg)
+      println("Fi_frg:"+fi_frg+"\t seq_conc \t"+seq_conc)
+      relevance ! calculate_features(fixed_source_file,fixed_plag_file,fi_frg,seq_conc)
   }
 
 }
 
+class Relevance extends Actor {
+
+  def receive ={
+    case calculate_features(source_file,plag_file,fi_frg,seq_conc) =>
+      var relevance_map :Map[String,Int]=Map()
+      var Relevance_of_Sequnces :Array[Int]= Array.empty
+      var counter :Int =0
+      var ginomeno :Int=1
+      for(key2 <- seq_conc.keys){
+        //println(key2)
+         val wk_Arr_Dr :Map[String,Int]=occ_wk(key2.split(" +"),source_file)
+
+         val wk_Arr_Ds :Map[String,Int]=occ_wk(key2.split(" +"),plag_file)
+         //println(wk_Arr_Dr_temp+"and \t"+wk_Arr_Ds_temp)
+
+         val first_fraction= 1/pow(2.72,seq_conc.apply(key2)-1)
+         //println(first_fraction)
+         val array_source :Array[Int]=wk_Arr_Dr.values.toArray     //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto source file tou sygkekrimenou
+         val array_plag :Array[Int]=wk_Arr_Ds.values.toArray      //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto plagiarised file tou sygkekrimenou
+         println(array_plag(0))
+         for(k <- 0 to (key2.split(" +").length-1)){
+                ginomeno=ginomeno*( 2/(array_plag(k)+array_source(k)) )
+           println("Ginomeno:"+ginomeno)
+         }
+         val second_fraction=ginomeno
+         relevance_map=relevance_map+(key2 ->second_fraction)
+      }
+         println("RELEVANCE MAP:"+relevance_map)
+
+  }
+  def occ_wk(key_Arr :Array[String],file:List[String]): Map[String,Int] ={
+    var wk_arr : Map[String,Int]= Map()
+    var counter :Int=0
+    for(key1 <- key_Arr){
+       //println(key1)
+       for (key2 <- file if(key1==key2)){
+           counter+=1
+       }
+       wk_arr=wk_arr.+(key1 -> counter)
+       counter=0
+    }
+    return(wk_arr)
+  }
+
+}
 
