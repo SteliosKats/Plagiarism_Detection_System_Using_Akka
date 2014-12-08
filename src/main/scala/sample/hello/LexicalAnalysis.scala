@@ -351,7 +351,7 @@ class Fragmentation extends Actor {
         }
 
       }
-      println("Fi_frg:"+fi_frg+"\t seq_conc \t"+seq_conc)
+      //println("Fi_frg:"+fi_frg+"\t seq_conc \t"+seq_conc)
       relevance ! calculate_features(fixed_source_file,fixed_plag_file,fi_frg,seq_conc)
   }
 
@@ -372,19 +372,31 @@ class Relevance extends Actor {
          val wk_Arr_Ds :Map[String,Int]=occ_wk(key2.split(" +"),plag_file)
          //println(wk_Arr_Dr_temp+"and \t"+wk_Arr_Ds_temp)
 
-         val first_fraction= 1/pow(2.72,seq_conc.apply(key2)-1)
+         val first_fraction :Float= (1/pow(2.72,seq_conc.apply(key2)-1)).toFloat
          //println(first_fraction)
          val array_source :Array[Int]=wk_Arr_Dr.values.toArray     //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto source file tou sygkekrimenou
          val array_plag :Array[Int]=wk_Arr_Ds.values.toArray      //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto plagiarised file tou sygkekrimenou
-         println(array_plag(0))
+         //println(array_plag(0))
          for(k <- 0 to (key2.split(" +").length-1)){
-                ginomeno=ginomeno*( 2.toFloat/(array_plag(k).toFloat + array_source(k).toFloat) )
-           println("Ginomeno:"+ginomeno)
+            ginomeno=ginomeno*( 2.toFloat/(array_plag(k).toFloat + array_source(k).toFloat) )
+           //println("Ginomeno:"+ginomeno)
          }
          val second_fraction=ginomeno
-         relevance_map=relevance_map+(key2 ->second_fraction)
+         val result :Float=first_fraction*second_fraction
+         relevance_map=relevance_map+(key2 ->result)
       }
-         println("RELEVANCE MAP:"+relevance_map)
+      var relevance_features :Map[Int,Float]=Map()
+      for(key <- relevance_map.keys){
+            if(relevance_features.containsKey(key.split(" +").length)){    //an to map periexei kleidi iso me ton arithmo twn leksewn ths sequence
+              val relev_value=relevance_features.apply(key.split(" +").length)+relevance_map.apply(key)
+              relevance_features=relevance_features.+(key.split(" +").length -> relev_value)
+            }
+            else{
+              relevance_features=relevance_features.+(key.split(" +").length -> relevance_map.apply(key))
+            }
+      }
+      println("Fragmentation Features :"+fi_frg)
+      println("RELEVANCE features MAP:"+relevance_features)
 
   }
   def occ_wk(key_Arr :Array[String],file:List[String]): Map[String,Int] ={
