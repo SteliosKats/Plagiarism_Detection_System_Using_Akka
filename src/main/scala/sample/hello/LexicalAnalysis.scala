@@ -1,9 +1,9 @@
-
 package sample.hello
 
 import java.io.File
 import akka.actor._
 import akka.routing._
+import java.io._
 import scala.io.Source
 import collection.JavaConversions._
 import edu.stanford.nlp.pipeline.Annotation
@@ -13,6 +13,9 @@ import edu.stanford.nlp.ling.CoreAnnotations.{TokenBeginAnnotation, LemmaAnnotat
 import edu.stanford.nlp.ling.{CoreAnnotations, CoreLabel, IndexedWord}
 import scala.collection.immutable.ListMap
 import scala.math.pow
+import com.scalaner.evaluation._
+import com.scalaner.training._
+
 
 /**
  * Created by root on 11/2/14.
@@ -25,12 +28,13 @@ case class returned_line_lemmas(listed_lemmas :Map[String,Int],filename :String)
 case class import_plag_file(plag_file:File)
 case class compare_source_plag(source_file :List[String],plag_file :List[String])
 case class calculate_features(fixed_source_file :List[String],fixed_plag_file :List[String],fi_frg : Map[Int,Int],seq_conc :Map[String,Int])
+case class information_gain_evaluator(source_file :List[String],plag_file :List[String])
 
 object  LexicalAnalysis {
   def main(args: Array[String]): Unit = {
     var fileid=1
     var tot_files=1
-    val current_directory=new File("/root/Desktop/")
+    val current_directory=new File("/root/Desktop/FileInd/")
     val indexingSystem= ActorSystem("CitationExtractionSystem2")//,ConfigFactory.load(application_is_remote))
     val plag_file_analysis = indexingSystem.actorOf(Props[PlagFileAnalysis],"plag_analysis")
     val source_analysis=indexingSystem.actorOf(Props[SourceFileAnalysis],"source_analysis")
@@ -111,7 +115,6 @@ class SourceFileAnalysis extends Actor {
             source_lemmas = source_lemmas.+(tmp_key -> key._2)
           }
         }
-
         val listed_lemmas: List[String] = source_lemmas.keys.toList
         //println(listed_lemmas)
         context.actorSelection("../plag_analysis").!(source_file_transf(source_file_name, listed_lemmas))
@@ -204,6 +207,8 @@ class PlagFileAnalysis extends Actor {
   val fragment=context.actorOf(Props[Fragmentation], name= "fragmentation")
   var source_file_lemmas :List[String]= List()
 
+  val info_gain_eval=context.actorOf(Props[InfoGain], name= "information_gain")
+
   def receive = {
     case source_file_transf(source_file_name,listed_lemmas_source) =>
       source_file_lemmas=listed_lemmas_source
@@ -250,6 +255,7 @@ class PlagFileAnalysis extends Actor {
         counter_terminated=1
         //println(listed_lemmas+",\t"+source_filename)
         fragment.!(compare_source_plag(source_file_lemmas,listed_lemmas))
+        /////////////////////////////info_gain_eval.!(information_gain_evaluator(source_file_lemmas,listed_lemmas))
       }
       else{
           counter_terminated+=1
@@ -296,7 +302,7 @@ class Fragmentation extends Actor {
     case compare_source_plag(source_file,plag_file) =>
       val fixed_source_file :List[String]=for(key <- source_file)yield key.substring(0,key.lastIndexOf("@"))
       val fixed_plag_file :List[String]=for(key <- plag_file)yield key.substring(0,key.lastIndexOf("@"))
-      println("fixed source file:"+fixed_source_file+" \t \t fixed plagiarism file:"+fixed_plag_file)
+      //println("fixed source file:"+fixed_source_file+" \t \t fixed plagiarism file:"+fixed_plag_file)
       var seq_conc :Map[String,Int]=Map()
       var counter : Int =0
       var temp_str= ""
@@ -366,25 +372,25 @@ class Relevance extends Actor {
       var counter :Int =0
       var ginomeno :Float=1
       for(key2 <- seq_conc.keys){
-        //println(key2)
-         val wk_Arr_Dr :Map[String,Int]=occ_wk(key2.split(" +"),source_file)
-
-         val wk_Arr_Ds :Map[String,Int]=occ_wk(key2.split(" +"),plag_file)
-         //println(wk_Arr_Dr_temp+"and \t"+wk_Arr_Ds_temp)
+         //println(key2)
+         val wk_Arr_Dr :Map[String,Int]=occ_wk(key2.split(" +"),source_file)  //to prwto orisma diagrafei ta kena sta keys tou cos_seq p.x.Map(the  -> 1, by  -> 5) diagrafei ta kena sto the kai to by
+         val wk_Arr_Ds :Map[String,Int]=occ_wk(key2.split(" +"),plag_file)  //to prwto orisma diagrafei ta kena sta keys tou cos_seq p.x.Map(the  -> 1, by  -> 5) diagrafei ta kena sto the kai to by
+         //println(wk_Arr_Dr+"and \t"+wk_Arr_Ds)
 
          val first_fraction :Float= (1/pow(2.72,seq_conc.apply(key2)-1)).toFloat
          //println(first_fraction)
          val array_source :Array[Int]=wk_Arr_Dr.values.toArray     //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto source file tou sygkekrimenou
          val array_plag :Array[Int]=wk_Arr_Ds.values.toArray      //pinakas pou periexei twn arithmo emfanisewn kathe lekshs tou key2 (sequence) sto plagiarised file tou sygkekrimenou
-         //println(array_plag(0))
+         //println(array_plag)
          for(k <- 0 to (key2.split(" +").length-1)){
-            ginomeno=ginomeno*( 2.toFloat/(array_plag(k).toFloat + array_source(k).toFloat) )
-           //println("Ginomeno:"+ginomeno)
+            ginomeno=ginomeno*( 2.toFloat/(array_plag(k).toFloat + array_source(k).toFloat) )  //array_plag(k).toFloat
+            //println("Ginomeno:"+ginomeno)
          }
          val second_fraction=ginomeno
          val result :Float=first_fraction*second_fraction
          relevance_map=relevance_map+(key2 ->result)
       }
+
       var relevance_features :Map[Int,Float]=Map()
       for(key <- relevance_map.keys){
             if(relevance_features.containsKey(key.split(" +").length)){    //an to map periexei kleidi iso me ton arithmo twn leksewn ths sequence
@@ -395,23 +401,71 @@ class Relevance extends Actor {
               relevance_features=relevance_features.+(key.split(" +").length -> relevance_map.apply(key))
             }
       }
-      println("Fragmentation Features :"+fi_frg)
-      println("RELEVANCE features MAP:"+relevance_features)
+      //println("Fragmentation Features :"+fi_frg)
+      //println("RELEVANCE features MAP:"+relevance_features)
 
+      val filepath=new File(".").getAbsolutePath().dropRight(1)+"data/FragRelev.txt"
+      val nerfile = new PrintWriter(new File(filepath))
+      nerfile.write("Fragmentation Features :"+fi_frg+"RELEVANCE features MAP:"+relevance_features)
+      //nerfile.write("other"+"\tO\n")
+      nerfile.close()
   }
   def occ_wk(key_Arr :Array[String],file:List[String]): Map[String,Int] ={
     var wk_arr : Map[String,Int]= Map()
     var counter :Int=0
+    var external_counter= 0   //p.x. by roadgood by roadgood by  de mporousan ta by na pane ksexwrista sto map
     for(key1 <- key_Arr){
        //println(key1)
        for (key2 <- file if(key1==key2)){
            counter+=1
        }
-       wk_arr=wk_arr.+(key1 -> counter)
+       wk_arr=wk_arr.+(key1+"@"+external_counter -> counter)
+       external_counter+=1
        counter=0
     }
     return(wk_arr)
   }
 
+}
+
+class InfoGain extends Actor{
+   def receive ={
+     case information_gain_evaluator(source_file,plag_file) =>
+       val fixed_source_file :List[String]=for(key <- source_file)yield key.substring(0,key.lastIndexOf("@"))
+       val fixed_plag_file :List[String]=for(key <- plag_file)yield key.substring(0,key.lastIndexOf("@"))
+
+       //println(new File(".").getAbsolutePath())//NERModel.trainClassifier()
+        val data_dir :File=new File(new File(".").getAbsolutePath().dropRight(1)+"data/")
+        val xval_dir :File = new File(data_dir+"/xval/")
+
+        if(!xval_dir.exists()){
+          xval_dir.mkdirs()                   //create xval directory
+        }
+       else{
+          println("Directory already exists and therefore not created")
+        }
+       val filepath=new File(".").getAbsolutePath().dropRight(1)+"data/ScalaNerFile.txt"
+       val nerfile = new PrintWriter(new File(filepath))
+       for(key <- fixed_source_file){
+         nerfile.write(key+"\tplagiarised\n")
+       }
+       //nerfile.write("other"+"\tO\n")
+       nerfile.close()
+       NERModel.trainClassifier((new File(".").getAbsolutePath().dropRight(1)+"data/ScalaNerFile.txt").toString(), (new File(".").getAbsolutePath().dropRight(1)+"data/xval/NERModel.ser.gz").toString())
+       val testInstance = new ApplyModel(new File(".").getAbsolutePath().dropRight(1)+"data/xval/NERModel.ser.gz")
+
+       val filepath2=new File(".").getAbsolutePath().dropRight(1)+"data/trainingdata.txt"
+       val nerfile2 = new PrintWriter(new File(filepath2))
+       for(key <- fixed_plag_file){
+         nerfile2.write(key+"\tplagiarised\n")
+       }
+       nerfile2.close()
+
+       val testInstance2 = new CrossValidation(10, new File(".").getAbsolutePath().dropRight(1)+"data/trainingdata.txt")
+       val xvalResults=testInstance2.runCrossValidation(new File(".").getAbsolutePath().dropRight(1)+"data/xval/")
+       println(xvalResults)
+     case _ => println("Nothing Happened!")
+
+   }
 }
 
