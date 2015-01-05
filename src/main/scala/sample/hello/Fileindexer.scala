@@ -18,22 +18,23 @@ import akka.routing.Broadcast
 import akka.actor.Terminated
 
 
+
 /**
  * Created by root on 9/30/14.
  */
-case class file_properties(filename :File,fileid :Int, total_files: Int)
+case class file_properties(filename :File,fileid :Int, total_files: Int,filenames_ids: Map[String,Int])
 case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,fileid :Int)
 case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int, poisoned_routees :Int)
 
-case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int])
-case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int])
+case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
+case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
 
 object FileIndexer{
   def main(args: Array[String]): Unit = {
     var path_filename=new File(" ")
     var fileid=1
     var tot_files=1
-    val current_directory=new File("/root/Desktop/Webis-CPC-11/")
+    val current_directory=new File("/root/Desktop/FileInd")
     val indexingSystem= ActorSystem("CitationExtractionSystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
     var filenames_ids :Map[String,Int]=Map()
@@ -48,13 +49,13 @@ object FileIndexer{
       tot_files+=1
     }
 
-    actor_ref_file ! file_properties(source_file,1,tot_files)
+    actor_ref_file ! file_properties(source_file,1,tot_files,filenames_ids)
     for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str) ){
       path_filename=new File(file.toString())
-      //println(file)
+      //println(path_filename)
       fileid+=1
       filenames_ids=filenames_ids.+(file.getName() ->fileid)
-      actor_ref_file ! file_properties(path_filename,fileid,tot_files)
+      actor_ref_file ! file_properties(path_filename,fileid,tot_files,filenames_ids)
     }
   }
 }
@@ -63,6 +64,7 @@ class FileReceiver extends Actor{
   var counter_terminated=0
   var all_refs :Map[String,Int]=Map()
   var file_counter=0
+  var ids_to_filenames :Map[Int,String]=Map()
   /* Creating A router to route "Workers" to extract citations for each line of the file */
   var router ={
     val routees=Vector.fill(5){
@@ -76,7 +78,8 @@ class FileReceiver extends Actor{
 
   def receive = {
 
-    case file_properties(filename, fileid, total_files) =>
+    case file_properties(filename, fileid, total_files,filenames_ids) =>
+      ids_to_filenames=filenames_ids.map(_.swap)
       var counter = 0
       file_counter+=1
       for (line <- Source.fromFile(filename).getLines()) {
@@ -96,19 +99,25 @@ class FileReceiver extends Actor{
         //println(all_refs)
       }
       else {
-        /* list Map with alla extracted references by file_id */
+        /* list Map with all extracted references by file_id */
         all_refs=ListMap(all_refs.toList.sortBy{_._2}:_*)
-        val algo_router: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[Algorithms_Execution]), "algorithms_router")
-        context.watch(algo_router)
-        //println(all_refs)
-        val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
-        //println(source_doc_refs)
-        for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
-        val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
-          //println(plag_doc_refs)
-          algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs)
-          algo_router ! Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs)
+        if(!all_refs.isEmpty){
+          val algo_router: ActorRef =context.actorOf(RoundRobinPool(5).props(Props[Algorithms_Execution]), "algorithms_router")
+          context.watch(algo_router)
+          //println(all_refs)
+          val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
+          //println(source_doc_refs)
+          for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
+            val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
+            //println(plag_doc_refs)
+            val source_plag_filenames :Map[Int,String]=Map().+(1 -> ids_to_filenames.get(1).get,2 ->ids_to_filenames.get(i).get)
+            algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs,source_plag_filenames)
+            algo_router ! Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs,source_plag_filenames)
 
+          }
+        }
+        else{
+          println("Source Document: "+ids_to_filenames.get(1).get +"\t And All Documents Searched For Plagiarism Do Not Contain Any References!")
         }
       }
     case Terminated (corpse) =>
@@ -179,7 +188,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
   def receive ={
 
-    case Citation_Chunking(source_doc_refs, plag_doc_refs) =>
+    case Citation_Chunking(source_doc_refs, plag_doc_refs,source_plag_filenames) =>
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
 
@@ -188,23 +197,24 @@ class Algorithms_Execution extends Actor with ActorLogging{
 
       val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
       if(chunked_document_matches.isEmpty){
-        println("No Matches found for these two documents")
+        println("No Matches found between Source Document:"+source_plag_filenames.get(1).get+"\t And Suspicious Document:"+source_plag_filenames.get(2).get)
       }
       else{
         println(chunked_document_matches)
       }
 
-    case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs) =>
+    case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs,source_plag_filenames) =>
+      //println("Source Doc refs:"+source_doc_refs+"\t plag doc refs:"+plag_doc_refs)
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
-
+      //println("Processed Source Doc refs:"+processed_plag_doc_refs+"\t Processed plag doc refs:"+processed_plag_doc_refs)
 
       val lccs_string=LCCSAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       if(lccs_string.isEmpty){
-        println("No Citation Tiles found for these two documents")
+        println("No Citation Tiles found between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" ")
       }
       else{
-        println("LCCS :"+lccs_string)
+        println("LCCS between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" is :"+lccs_string)
       }
   }
 
@@ -387,9 +397,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val fixed_source_keys= for(key <-map1.keySet) yield (key.substring(0,key.lastIndexOf("@")))
     val fixed_plag_keys=for(key <-map2.keySet) yield (key.substring(0,key.lastIndexOf("@")))
-
+    println("fixed_source_keys: "+fixed_source_keys+"\t And fixed_plag_keys:"+fixed_plag_keys)
     val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
     val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
+    println("Source_matching_citations:"+source_matching_citations+"\t And plag_matching citations:"+plag_matching_citations)
     var LCCS_str :String=new String()
     var position :Int=0
     var max_elements :Int=0
@@ -399,35 +410,40 @@ class Algorithms_Execution extends Actor with ActorLogging{
     if(!source_matching_citations.isEmpty) {
       while (position.<=(source_matching_citations.seq.size)) {
         val tup_le2 = ASimpleFunction(map1, map2, source_matching_citations, position)
+        //println(tup_le2)
         position = tup_le2._2
         if (tup_le2._3 >= max_elements) {
           max_elements = tup_le2._3
           LCCS_str = tup_le2._1
+          //println("LCCS_STR: "+LCCS_str)
         }
       }
+      return(LCCS_str)
     }
-    return(LCCS_str)
+    else{
+      return("")
+    }
 
   }
 
 
-def ASimpleFunction(map1 :Map[String,Float],map2 :Map[String,Float],source_matching_citations :Set[String],next_start_pos :Int):(String,Int,Int) ={
-  var first_occurence :Int=0
+  def ASimpleFunction(map1 :Map[String,Float],map2 :Map[String,Float],source_matching_citations :Set[String],next_start_pos :Int):(String,Int,Int) ={
+    var first_occurence :Int=0
 
-  var LCCS_arr :Map[String,Int]=Map()
-  var external_counter : Int=0
-  var internal_counter :Int=0
-  var elem_counter :Int =0
+    var LCCS_arr :Map[String,Int]=Map()
+    var external_counter : Int=0
+    var internal_counter :Int=0
+    var elem_counter :Int =0
 
-  var pos_found :Int=0
-  var pos_found2 :Int=0
-  var lccs_string :String=new String()
-    for(key1 <- map1.keySet  if(source_matching_citations.contains(key1.substring(0,key1.lastIndexOf("@")))) ) {
+    var pos_found :Int=0
+    var pos_found2 :Int=0
+    var lccs_string :String=new String()
+    for(key1 <- map1.keySet) {
       //println(key1)
       internal_counter = 0
       external_counter += 1
       var found: Boolean = false
-      if (external_counter >= next_start_pos){
+      if (external_counter >= next_start_pos && source_matching_citations.contains(key1.substring(0,key1.lastIndexOf("@")))){
         //println("ok"+external_counter+"\t"+next_start_pos)
         for (key2 <- map2.keySet if (found != true)) {
           //println(key2)
@@ -442,20 +458,20 @@ def ASimpleFunction(map1 :Map[String,Float],map2 :Map[String,Float],source_match
             elem_counter += 1
             lccs_string = lccs_string + "," + key1.substring(0, key1.lastIndexOf("@"))
             //println(lccs_string)
-            //println("Position found:"+pos_found2)
+            //println(key1.substring(0, key1.lastIndexOf("@"))+"=="+key2.substring(0, key2.lastIndexOf("@")))
           }
           else {
             internal_counter += 1
           }
         }
         if(found==false){
-          //println(lccs_string+pos_found2)
-            return(lccs_string.substring(1),pos_found2+1,elem_counter)
+          //println(lccs_string+pos_found)
+          return(lccs_string.substring(1),pos_found2+1,elem_counter)
         }
       }
     }
-  return(lccs_string.substring(1),pos_found2,elem_counter)
-}
+    return(lccs_string.substring(1),pos_found2,elem_counter)
+  }
 
   def GCTAlgorithm(map1 :Map[String,Float],map2 :Map[String,Float]):List[String] ={
     /*   -----------------------------------------------------------------------------------------------------------------------------  */
