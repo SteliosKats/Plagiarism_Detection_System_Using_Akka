@@ -30,18 +30,14 @@ case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Ma
 case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
 
 object FileIndexer{
-  def main(args: Array[String]): Unit = {
+  def ReadFiles(source_str: String,current_directory :File): Unit = {
     var path_filename=new File(" ")
     var fileid=1
     var tot_files=1
-    val current_directory=new File("/root/Desktop/FileInd")
     val indexingSystem= ActorSystem("CitationExtractionSystem")//,ConfigFactory.load(application_is_remote))
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
     var filenames_ids :Map[String,Int]=Map()
-    var source_str=readLine("Enter The Source File's Name To Be Checked for Citation-based Plagiarism Detection:")
-    while(!new File(current_directory+"/"+source_str).exists()){
-      source_str=readLine("File Not found!Try Again with different file or check your spelling:")
-    }
+
     val source_file=new File(current_directory+"/"+source_str)
     filenames_ids=filenames_ids.+(source_str ->1)
 
