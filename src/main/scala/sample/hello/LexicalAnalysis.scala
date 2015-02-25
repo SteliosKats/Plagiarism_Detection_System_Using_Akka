@@ -30,7 +30,6 @@ case class returned_line_lemmas(listed_lemmas :List[String],file_handler :PrintW
 case class import_plag_file(plag_file:File,filepath_plag:String)
 case class compare_source_plag(source_filepath :String,plag_filepath :String)
 case class calculate_features(wk_Arr_Dr :Map[String,Int],wk_Arr_Ds :Map[String,Int],fi_frg : Map[Int,Int],seq_conc :Map[String,Int])
-case class information_gain_evaluator(source_file :List[String],plag_file :List[String])
 case class ShutdownMessage(file_handler :PrintWriter)
 case class word_line_comp(word :String,plag_filepath :String, counter: Int,plag_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int])
 case class word_line_comp_inception(word :String,line :Array[String],counter_source :Int,counter_plag :Int,plag_lines_size :Int,plag_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int])
@@ -41,24 +40,19 @@ case class frag_calculate(seq_str :String, start_end_fltr:Array[Int])
 
 
 object  LexicalAnalysis {
-  def main(args: Array[String]): Unit = {
+  def ReadFiles2(source_str: String,current_directory :File): Unit = {
     var tot_files=1
-    val current_directory=new File("/root/Desktop/FileInd/")
     val indexingSystem= ActorSystem("CitationExtractionSystem2")//,ConfigFactory.load(application_is_remote))
     val plag_file_analysis = indexingSystem.actorOf(Props[PlagFileAnalysis],"plag_analysis")
     val source_analysis=indexingSystem.actorOf(Props[SourceFileAnalysis],"source_analysis")
     var filenames_ids :Map[String,Int]=Map()
-    var source_str=readLine("Enter The Source File's Name To Be Checked for Citation-based Plagiarism Detection:")
-    while(!new File(current_directory+"/"+source_str).exists()){
-      source_str=readLine("File Not found!Try Again with different file or check your spelling:")
-    }
+
     val source_file=new File(current_directory+"/"+source_str)
     filenames_ids=filenames_ids.+(source_str ->1)
 
     for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str )){
       tot_files+=1
     }
-
     source_analysis ! file_properties2(source_file,1,tot_files,source_str)
 
   }
@@ -85,7 +79,6 @@ class SourceFileAnalysis extends Actor {
       val file_lines_size=Source.fromFile(source_file).getLines().size
       val file_handler :PrintWriter= new PrintWriter(new File(filepath))
       for (line <- Source.fromFile(source_file).getLines()) {
-        //println(self+","+sender())
         lemaextr ! routingmessages2(line ,self ,source_file_name ,file_handler ,file_lines_size)
       }
       lemaextr.!(ShutdownMessage(file_handler))
@@ -131,7 +124,6 @@ class LineLemmaExtractor extends Actor with ActorLogging{
         }
       }))
 
-      // create the processor
       val props:Properties=new Properties()
       props.put("annotators","tokenize, ssplit, pos ,lemma")
       val pipeline:StanfordCoreNLP=new StanfordCoreNLP(props)
@@ -188,7 +180,6 @@ class PlagFileAnalysis extends Actor {
   val fragment=context.actorOf(Props[Fragmentation], name= "fragmentation")
   var source_filepath :String =new String()
 
-  val info_gain_eval=context.actorOf(Props[InfoGain], name= "information_gain")
   var filepath_plag :String=new String()
   def receive = {
     case source_file_transf(source_file_name,filepath) =>
@@ -221,6 +212,7 @@ class PlagFileAnalysis extends Actor {
         counter_terminated=0
         fragment.!(compare_source_plag(source_filepath,filepath_plag))
       }
+
     case _ =>
       println("Nothing received")
   }
@@ -585,45 +577,3 @@ class Relevance extends Actor {
   }
 
 }
-
-class InfoGain extends Actor{
-  def receive ={
-    case information_gain_evaluator(source_file,plag_file) =>
-      val fixed_source_file :List[String]=for(key <- source_file)yield key.substring(0,key.lastIndexOf("@"))
-      val fixed_plag_file :List[String]=for(key <- plag_file)yield key.substring(0,key.lastIndexOf("@"))
-
-      //println(new File(".").getAbsolutePath())//NERModel.trainClassifier()
-      val data_dir :File=new File(new File(".").getAbsolutePath().dropRight(1)+"data/")
-      val xval_dir :File = new File(data_dir+"/xval/")
-
-      if(!xval_dir.exists()){
-        xval_dir.mkdirs()                   //create xval directory
-      }
-      else{
-        println("Directory already exists and therefore not created")
-      }
-      val filepath=new File(".").getAbsolutePath().dropRight(1)+"data/ScalaNerFile.txt"
-      val nerfile = new PrintWriter(new File(filepath))
-      for(key <- fixed_source_file){
-        nerfile.write(key+"\tplagiarised\n")
-      }
-      //nerfile.write("other"+"\tO\n")
-      nerfile.close()
-      NERModel.trainClassifier((new File(".").getAbsolutePath().dropRight(1)+"data/ScalaNerFile.txt").toString(), (new File(".").getAbsolutePath().dropRight(1)+"data/xval/NERModel.ser.gz").toString())
-      val testInstance = new ApplyModel(new File(".").getAbsolutePath().dropRight(1)+"data/xval/NERModel.ser.gz")
-
-      val filepath2=new File(".").getAbsolutePath().dropRight(1)+"data/trainingdata.txt"
-      val nerfile2 = new PrintWriter(new File(filepath2))
-      for(key <- fixed_plag_file){
-        nerfile2.write(key+"\tplagiarised\n")
-      }
-      nerfile2.close()
-
-      val testInstance2 = new CrossValidation(10, new File(".").getAbsolutePath().dropRight(1)+"data/trainingdata.txt")
-      val xvalResults=testInstance2.runCrossValidation(new File(".").getAbsolutePath().dropRight(1)+"data/xval/")
-      println(xvalResults)
-    case _ => println("Nothing Happened!")
-
-  }
-}
-
