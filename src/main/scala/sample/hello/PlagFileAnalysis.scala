@@ -35,8 +35,10 @@ class PlagFileAnalysis extends Actor {
     case plag_file_transf(plag_filename, listed_lemmas_plag,file_lines_size,file_handler_plag) =>
       if (counter_terminated!=file_lines_size) {
         counter_terminated+=1
-        for (key <- listed_lemmas_plag.iterator) {
-          if (key != listed_lemmas_plag.last)
+        var line_counter =0
+        for (key <- listed_lemmas_plag.iterator ) {
+          line_counter+=1
+          if (key != listed_lemmas_plag.last || line_counter.!=(listed_lemmas_plag.size))
             file_handler_plag.write(key + " ")
           else
             file_handler_plag.write(key)
