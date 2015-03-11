@@ -36,10 +36,12 @@ class CompareSourcePlag extends Actor {
           router.route(word_line_comp(word,plag_filepath,counter,plagfile_id),sender())
         }
       }
-      router.route(Broadcast("Terminate"), sender())
+      router.route(Broadcast(Routees_Termination(plagfile_id)), sender())
 
     case _ =>
       println("nothing happened")
   }
 
 }
+
+
