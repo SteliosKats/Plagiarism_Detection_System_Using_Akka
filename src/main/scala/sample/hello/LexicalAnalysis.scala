@@ -31,13 +31,17 @@ case class import_plag_file(plag_file:File,filepath_plag:String)
 case class compare_source_plag(source_filepath :String,plag_filepath :String,plagfile_id :Int)
 case class calculate_features(wk_Arr_Dr :Map[String,Int],wk_Arr_Ds :Map[String,Int],fi_frg : Map[Int,Int],seq_conc :Map[String,Int])
 case class ShutdownMessage(file_handler :PrintWriter)
-case class word_line_comp(word :String,plag_filepath :String, counter: Int,plagfile_id:Int)
-case class word_line_comp_inception(word :String,line :Array[String],counter_source :Int,counter_plag :Int,plag_filepath :String,plagfile_id:Int)
+case class Routees_Termination(plagfile_id :Int)
+case class Routees_Inception_Termination(plagfile_id :Int)
+case class End_Of_SourceFile(plagfile_id :Int)
+case class word_line_comp(word :String,plag_filepath :String, counter: Int,plagfile_id :Int)
+case class word_line_comp_inception(word :String,line :Array[String],counter_source :Int,counter_plag :Int,plag_filepath :String,plagfile_id :Int)
 case class returned_Multimaps(plag_tuple:Tuple2[String,Int],source_word :Map[String,Int],times_found :Int,plagfile_id :Int)
-case class calculate_wks(plag_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],source_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int])
-case class calculate_wks2(start :Int,end :Int,seq_start :String,plag_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],source_key_pos :Int,source_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int])
+case class calculate_wks(plag_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],source_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plagfile_id :Int)
+case class calculate_wks2(start :Int,end :Int,seq_start :String,plag_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],source_key_pos :Int,source_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plagfile_id :Int)
+case class Terminate_FR_Calcs(source_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plag_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plagfile_id :Int)
+case class FR_Calcs_Routees_Terminated(source_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plag_file_matches :HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plagfile_id :Int)
 case class frag_calculate(seq_str :String, start_end_fltr:Array[Int])
-case class save_globalHashMaps(source_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int],plag_file_matches:HashMap[String, scala.collection.mutable.Set[Int]] with scala.collection.mutable.MultiMap [String,Int])
 
 
 object LexicalAnalysis {
@@ -57,4 +61,3 @@ object LexicalAnalysis {
     source_analysis ! file_properties2(source_file,1,tot_files,source_str)
   }
 }
-
