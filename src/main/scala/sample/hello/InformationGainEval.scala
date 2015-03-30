@@ -29,8 +29,8 @@ class InformationGainEval extends Actor with ActorLogging{
       feature_file.println(s"@RELATION $relationName\n")
       for(key <- subseq.keys ){
         val length=y_legths.apply(key)
-        if(!attribute_map.contains(length.toString)){  //if(!attribute_map.contains("@ATTRIBUTE sequence_length-"+length.toString)){
-          attribute_map=(length.toString) :: attribute_map  //attribute_map=("@ATTRIBUTE sequence_length-"+length.toString) :: attribute_map
+        if(!attribute_map.contains(length.toString)){  
+          attribute_map=(length.toString) :: attribute_map  
           feature_file.println(s"@ATTRIBUTE sequence_length-$length NUMERIC")
         }
       }
@@ -50,7 +50,6 @@ class InformationGainEval extends Actor with ActorLogging{
       }
       feature_file.close()
 
-      Process(" java weka.attributeSelection.InfoGainAttributeEval -s weka.attributeSelection.Ranker -i FeaturesSubset1.arff ")!
       val source :DataSource = new DataSource(filepath)
       val data :Instances= source.getDataSet()
       if (data.classIndex() == -1)
