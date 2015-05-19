@@ -7,16 +7,20 @@ import java.io.File
  */
 object PlagiarismDetection {
   def main(args: Array[String]): Unit = {
-    val current_directory=new File("/root/Desktop/FileInd/")
-    var source_str=readLine("Enter The Source File Name To Be Checked for Citation-based Plagiarism Detection:")
-    while(!new File(current_directory+"/"+source_str).exists()){
-      source_str=readLine("File Not found!Try Again with different file or check your spelling:")
-    }
+    val source_filepath =new File(".").getAbsolutePath().dropRight(1)+"source_files/"
+    val plag_filepath =new File(".").getAbsolutePath().dropRight(1)+"suspicious_files/"
+    val plag_dir :File= new File(plag_filepath)
+    val source_dir :File= new File(source_filepath)
+    var ext_counter :Int= 0
+    var source_total :Int =0
     println("Executing citation-based algorithms...")
-    FileIndexer.ReadFiles(source_str,current_directory)
-
+    for(file <- source_dir.listFiles if(file.getName.endsWith(".txt") )){
+      //println(file)
+     // FileIndexer.ReadFiles(file.getName(),source_dir,plag_dir)
+     source_total+=1
+    }
     println("Performing Lexical Analysis please wait...")
-    LexicalAnalysis.ReadFiles2(source_str,current_directory)
+    LexicalAnalysis.ReadFiles2(source_dir,plag_dir)
   }
 
 }

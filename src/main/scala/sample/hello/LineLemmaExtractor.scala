@@ -57,7 +57,7 @@ class LineLemmaExtractor extends Actor with ActorLogging{
       }
       else if (source_receiver_ref.toString().contains("source_analysis")){
         //context.actorSelection("../plag_analysis").!(source_file_transf(source_file_name, listed_lemmas))
-        source_receiver_ref.!(returned_line_lemmas(listed_lemmas,file_handler,file_lines_size))
+        source_receiver_ref.!(returned_line_lemmas(listed_lemmas,file_handler,file_lines_size,filename))
       }
 
     case ShutdownMessage(file_handler) =>

@@ -30,7 +30,7 @@ case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Ma
 case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
 
 object FileIndexer{
-  def ReadFiles(source_str: String,current_directory :File): Unit = {
+  def ReadFiles(source_str: String,source_file_directory :File, plag_directory :File): Unit = {
     var path_filename=new File(" ")
     var fileid=1
     var tot_files=1
@@ -38,15 +38,16 @@ object FileIndexer{
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
     var filenames_ids :Map[String,Int]=Map()
 
-    val source_file=new File(current_directory+"/"+source_str)
+    val source_file=new File(source_file_directory+"/"+source_str)
+    //println(source_file)
     filenames_ids=filenames_ids.+(source_str ->1)
 
-    for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str )){
+    for(file <- plag_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str )){
       tot_files+=1
     }
-
     actor_ref_file ! file_properties(source_file,1,tot_files,filenames_ids)
-    for(file <- current_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str) ){
+
+    for(file <- plag_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str) ){
       path_filename=new File(file.toString())
       //println(path_filename)
       fileid+=1
@@ -104,7 +105,7 @@ class FileReceiver extends Actor{
           val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
           //println(source_doc_refs)
           for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
-            val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
+          val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
             //println(plag_doc_refs)
             val source_plag_filenames :Map[Int,String]=Map().+(1 -> ids_to_filenames.get(1).get,2 ->ids_to_filenames.get(i).get)
             algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs,source_plag_filenames)
@@ -113,7 +114,7 @@ class FileReceiver extends Actor{
           }
         }
         else{
-          println("Source Document: "+ids_to_filenames.get(1).get +"\t And All Documents Searched For Plagiarism Do Not Contain Any References!")
+          println("Source Document: "+ids_to_filenames.get(1).get +"\t And All Suspicious Documents Searched For Plagiarism Do Not Contain Any References!")
         }
       }
     case Terminated (corpse) =>
@@ -196,16 +197,16 @@ class Algorithms_Execution extends Actor with ActorLogging{
         println("No Matches found between Source Document:"+source_plag_filenames.get(1).get+"\t And Suspicious Document:"+source_plag_filenames.get(2).get)
       }
       else{
-        println(chunked_document_matches)
+        println("Chunked Document Matches  :"+chunked_document_matches)
       }
 
     case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs,source_plag_filenames) =>
       //println("Source Doc refs:"+source_doc_refs+"\t plag doc refs:"+plag_doc_refs)
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
-      //println("Processed Source Doc refs:"+processed_plag_doc_refs+"\t Processed plag doc refs:"+processed_plag_doc_refs)
-
+      //println("Processed Source Doc refs:"+processed_source_doc_refs+"\t Processed plag doc refs:"+processed_plag_doc_refs)
       val lccs_string=LCCSAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
+      //println("lccs_string : for files"+source_plag_filenames.apply(1) + " and "+source_plag_filenames.apply(2))
       if(lccs_string.isEmpty){
         println("No Citation Tiles found between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" ")
       }
@@ -393,10 +394,10 @@ class Algorithms_Execution extends Actor with ActorLogging{
     /*    ------------------------------------------------------------------------------------------------------------------------------*/
     val fixed_source_keys= for(key <-map1.keySet) yield (key.substring(0,key.lastIndexOf("@")))
     val fixed_plag_keys=for(key <-map2.keySet) yield (key.substring(0,key.lastIndexOf("@")))
-    println("fixed_source_keys: "+fixed_source_keys+"\t And fixed_plag_keys:"+fixed_plag_keys)
+    //println("fixed_source_keys: "+fixed_source_keys+"\t And fixed_plag_keys:"+fixed_plag_keys)
     val source_matching_citations= (fixed_source_keys.--((fixed_source_keys.--(fixed_plag_keys))))
     val plag_matching_citations= (fixed_plag_keys.--((fixed_plag_keys.--(fixed_source_keys))))
-    println("Source_matching_citations:"+source_matching_citations+"\t And plag_matching citations:"+plag_matching_citations)
+    //println("Source_matching_citations:"+source_matching_citations+"\t And plag_matching citations:"+plag_matching_citations)
     var LCCS_str :String=new String()
     var position :Int=0
     var max_elements :Int=0
@@ -404,7 +405,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
     //position=tup_le._2
     //println(tup_le._1)
     if(!source_matching_citations.isEmpty) {
-      while (position.<=(source_matching_citations.seq.size)) {
+      while (position.<(source_matching_citations.seq.size)) {
         val tup_le2 = ASimpleFunction(map1, map2, source_matching_citations, position)
         //println(tup_le2)
         position = tup_le2._2
@@ -466,6 +467,7 @@ class Algorithms_Execution extends Actor with ActorLogging{
         }
       }
     }
+    //println("returning with lccs:"+lccs_string)
     return(lccs_string.substring(1),pos_found2,elem_counter)
   }
 
@@ -528,4 +530,3 @@ class Algorithms_Execution extends Actor with ActorLogging{
     return(longest_cit_patt)
   }
 }
-

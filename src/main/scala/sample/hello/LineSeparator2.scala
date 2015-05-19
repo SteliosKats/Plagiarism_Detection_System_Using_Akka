@@ -13,7 +13,7 @@ import collection.mutable.{HashMap,MultiMap,Map}
  * Created by root on 3/3/15.
  */
 class LineSeparator2 extends Actor {
-  val linediting=context.actorOf(Props[LineLemmaExtractor], name= "line_separate_plag")
+  val linediting2=context.actorOf(Props[LineLemmaExtractor], name= "line_separate_plag")
 
   def receive = {
 
@@ -24,8 +24,7 @@ class LineSeparator2 extends Actor {
       //println(filepath_plag)
       for (line <- Source.fromFile(path_filename).getLines()) {
         //println(file_lines_size)
-        linediting.!(routingmessages2(line ,self ,path_filename.getName() ,file_handler_plag ,file_lines_size))
-        //router2.!(routingmessages2(line, line_leng,counter,line.length(), self ,path_filename.getName()))
+        linediting2.!(routingmessages2(line ,self ,path_filename.getName() ,file_handler_plag ,file_lines_size))
       }
     case _ =>
       println("The line of the current file has not received")

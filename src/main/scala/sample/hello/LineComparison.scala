@@ -23,17 +23,18 @@ class LineComparison extends Actor with ActorLogging {
 
   def receive ={
 
-    case word_line_comp(word,plag_filepath,counter_source,plagfile_id) =>
+    case word_line_comp(word,plag_filepath,counter_source,comp_file_ids) =>
       var counter_plag=0
-      var plag_lines_size :Int=Source.fromFile(plag_filepath).getLines.size
-      for (line <- Source.fromFile(plag_filepath).getLines()) {
+      //var plag_lines_size :Int=Source.fromFile(plag_filepath).getLines.size   ????????petage error (Too many files)
+      val textsource =Source.fromFile(plag_filepath)
+      for (line <- textsource.getLines()) {
         val line_arr :Array[String]=line.split(" ")
-        router.route(word_line_comp_inception(word,line_arr,counter_source,counter_plag,plag_filepath,plagfile_id),sender())
+        router.route(word_line_comp_inception(word,line_arr,counter_source,counter_plag,plag_filepath,comp_file_ids),sender())
         counter_plag=counter_plag+ line.split(" ").size
       }
-
-    case Routees_Termination(plagfile_id) =>
-      router.route(Broadcast(Routees_Inception_Termination(plagfile_id)),sender())
+      textsource.close()
+    case Routees_Termination(id_size_filename_total,source_file_words,compared_tuple_w_ids) =>
+      router.route(Broadcast(Routees_Inception_Termination(id_size_filename_total,source_file_words,compared_tuple_w_ids)),sender())
 
     case _ =>
       println("I didn't got word from the Source File this time!")
@@ -44,8 +45,9 @@ class LineComparison extends Actor with ActorLogging {
 
 class WordComparison_Inception extends Actor with ActorLogging {
   var plag_tuple :Tuple2[String,Int]=new Tuple2("",0)
+  var cassify :Map[String,Int]=Map()    ///this map contains
   def receive ={
-    case word_line_comp_inception(word,line_arr,counter_source,counter_plag,plag_filepath,plagfile_id) =>
+    case word_line_comp_inception(word,line_arr,counter_source,counter_plag,plag_filepath,comp_file_ids) =>
       var inception_counter=0
       var times_found=0
       var word_found :Boolean=false
@@ -59,12 +61,12 @@ class WordComparison_Inception extends Actor with ActorLogging {
            // println("File id:"+plagfile_id +"\t "+plag_tuple)
         // }
           val source_word :Map[String,Int]= Map().+(word -> counter_source)
-          context.actorSelection("/user/plag_analysis/comparing_s_p/returned_matches").!(returned_Multimaps(plag_tuple,source_word,times_found,plagfile_id))
+          context.actorSelection("/user/plag_analysis/comparing_s_p/returned_matches").!(returned_Multimaps(plag_tuple,source_word,times_found,comp_file_ids))
         }
       }
 
-    case Routees_Inception_Termination(plagfile_id) =>
-      context.actorSelection("/user/plag_analysis/comparing_s_p/returned_matches").!(End_Of_SourceFile(plagfile_id))
+    case Routees_Inception_Termination(id_size_filename_total,source_file_words,compared_tuple_w_ids) =>
+      context.actorSelection("/user/plag_analysis/comparing_s_p/returned_matches").!(End_Of_SourceFile(id_size_filename_total,source_file_words,compared_tuple_w_ids))
 
     case _ =>
       println("Wrong data sent from the source or pontentially palgiarised file!")
