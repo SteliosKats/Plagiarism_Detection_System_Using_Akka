@@ -24,5 +24,7 @@ libraryDependencies ++= Seq(
   "net.sf.jopt-simple" % "jopt-simple" % "4.5",
   "de.bwaldvogel" % "liblinear" % "1.94",
   "log4j" % "log4j" % "1.2.17",
+  "nz.ac.waikato.cms.weka" % "weka-dev" % "3.7.12",
   "tw.edu.ntu.csie" % "libsvm" % "3.17"
 )
+
