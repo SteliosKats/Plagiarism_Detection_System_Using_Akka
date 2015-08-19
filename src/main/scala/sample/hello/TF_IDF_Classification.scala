@@ -24,6 +24,8 @@ class TF_IDF_Classification extends Actor with ActorLogging{
  val frg_f=context.actorOf(Props[FragmentationFeatures], name= "fragmentation_features")
  val frgm_calc=context.actorOf(Props[FragFeaturesCalc], name= "fragmentation_calculations")
  val chunk_maps =context.actorOf(Props[Chunking_Maps_Before_IG], name= "IG_map_chunking")
+ val avg_ig =context.actorOf(Props[AveragedIG], name= "average_information_gain")
+
  var plagid_size :Map[Int,Int]=Map()
 
  def receive ={
@@ -154,6 +156,8 @@ class Chunking_Maps_Before_IG extends Actor with ActorLogging{
     }
     Router(RoundRobinRoutingLogic(), routees)
   }
+  val m_config=context.actorOf(Props[M_Variable_Definition], name= "value_m_configuration")
+
   var new_all_frg_y =new HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String]
   var new_all_rel_y =new HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String]
   var ext_counter2 :Int =0
@@ -161,7 +165,7 @@ class Chunking_Maps_Before_IG extends Actor with ActorLogging{
   def receive ={
     case ig_chunking(all_frg_y,all_rel_y,classification_map,id_total,compared_tuple_w_ids) =>
       ext_counter2 +=1
-      for(i <- 1 to id_total._2) {
+      for(i <- 1 to id_total._2) { //mesa se oles aytes tis for epyksanoume to kathe value apo to kathe key  me to antistoixo plagiarised/notplagiarised string analoga me to id tou plag_keimenou
         for (kv <- all_frg_y.iterator) {
           for (key <- kv._2) {
             if (key.substring(key.lastIndexOf(",")+1,key.length()).toInt == i) {
@@ -172,7 +176,7 @@ class Chunking_Maps_Before_IG extends Actor with ActorLogging{
           }
         }
       }
-      for(i <- 1 to id_total._2) {
+      for(i <- 1 to id_total._2) { //same here
         for (kv <- all_rel_y.iterator) {
           for (key <- kv._2) {
             if (key.substring(key.lastIndexOf(",")+1,key.length()).toInt == i) {
@@ -184,82 +188,92 @@ class Chunking_Maps_Before_IG extends Actor with ActorLogging{
         }
       }
 
-      //println(counter)
+
      if(ext_counter2==counter){
-      //println(new_all_frg_y)
-      //println(new_all_rel_y)
+
+       m_config.!(presend_variables(new_all_frg_y,new_all_rel_y))
+
       var terminate :Boolean =false
       var external_counter :Int =0  //counter gia na dhmiourgithoun  ola ta arff arxeia kai na mhn yparksoun diplotypa metaksy rel and frag arffs
       val map_size1 :Int =new_all_frg_y.size
       val map_size2 :Int =new_all_rel_y.size
       val feature_map_size = map_size1 +map_size2
-      val pre1 = feature_map_size.toDouble/10.toDouble
-      val pre2 = scala.math.floor(feature_map_size.toDouble/10.toDouble)
-      val remainder = pre1 - pre2
+      val pre1 = map_size1.toDouble/10.toDouble
+      val pre2 = scala.math.floor(map_size1.toDouble/10.toDouble)
+      val remainder_frg= pre1 - pre2
       val frg_floor= scala.math.floor(map_size1.toDouble/10.toDouble)
-      println(feature_map_size+"\t"+pre1+"\t"+pre2+"\t"+remainder+"\t"+frg_floor)
+      println(feature_map_size+"\t"+pre1+"\t"+pre2+"\t"+remainder_frg+"\t"+frg_floor)
       var rem_subset:Map[Int, scala.collection.mutable.Set[java.lang.String]]= Map()
       if(map_size1 >=10) {             //An to map me ta fragmentation features einai perissotera apo 10 opote mporoume na to xwrisoume estw kai mia fora
         for (i <- 1 to frg_floor.toInt) {
           external_counter+=1
-          if (i == pre2.toInt && (remainder * 10) != 0) {
+          if (i == frg_floor.toInt && (remainder_frg * 10) != 0) {  // if (i == pre2.toInt && (remainder * 10) != 0) {
             // i==5  apo 40
             val subseq = new_all_frg_y.toSeq.sortBy(_._1).slice(10 * (i - 1), 10 * (i)).map(x => x._1 -> x._2).toMap
             rem_subset = rem_subset.++(new_all_frg_y.toSeq.sortBy(_._1).slice(10 * (i), 10 * (i) + (pre1 * 10 - pre2 * 10).toInt).map(x => x._1 -> x._2).toMap)    //  rem_subset = rem_subset.++(all_frg_y.toSeq.sortBy(_._1).slice(10 * (i), 10 * (i) + (pre1 * 10 - pre2 * 10).toInt).map(x => x._1 -> x._2).toMap)
             terminate = true
-            router.route(EvalIG(subseq,external_counter ,id_total._2,compared_tuple_w_ids._3),sender())
+            //println(rem_subset)
+            router.route(EvalIG(subseq,classification_map,external_counter ,id_total._2,compared_tuple_w_ids._3),sender())
           }
           else if (terminate.!=(true)) {
             val subseq = new_all_frg_y.toSeq.sortBy(_._1).slice(10 * (i - 1), 10 * i).map(x => x._1 -> x._2).toMap
             //println(new_all_frg_y.toSeq.slice(10 * (i - 1), 10 * (i)).map(x => x._1 -> x._2))
-            router.route(EvalIG(subseq,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
+            router.route(EvalIG(subseq,classification_map,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
           }
         }
       }
       else {                                            //alliws to stelnoume  mazi me ta ypoloipa relevance features
         rem_subset=new_all_frg_y
       }
-
+      //println(new_all_rel_y+"       and        "+new_all_frg_y)
       for(kv <- rem_subset.iterator){
         for(values <- kv._2.seq){
           new_all_rel_y.addBinding(kv._1,values)
         }
       }
-
       val rel_features_size :Int =new_all_rel_y.size
       val rel_and_subset=rem_subset.size +rel_features_size
       val pre11 = rel_and_subset.toDouble/10.toDouble
       val pre22 = scala.math.floor(rel_and_subset.toDouble/10.toDouble)
       val rem = pre11 - pre22
+      terminate=false
+      println(rel_features_size+"\t"+rel_and_subset+"\t"+pre11+"\t"+pre22+"\t"+rem)
       if(rel_and_subset >=10) {
         for (i <- 1 to pre22.toInt) {
           external_counter+=1
-          if (i == pre22.toInt && (rem * 10) <= 5) {
+          if (i == pre22.toInt && (rem * 10).round.toInt <= 5) {
+            //println(external_counter)
             // i==5  apo 40
-            val subseq = new_all_rel_y.toSeq.sortBy(_._1).slice(10 * (i - 1), (10 * (i)).+((rem * 10).toInt)).map(x => x._1 -> x._2).toMap
+            val subseq = new_all_rel_y.toSeq.sortBy(_._1).slice(10 * (i - 1), (10 * (i) + ((rem * 10).round.toInt)) ).map(x => x._1 -> x._2).toMap
+            //println(subseq)
             terminate = true
-            router.route(EvalIG(subseq,external_counter ,id_total._2,compared_tuple_w_ids._3),sender())
+            router.route(EvalIG(subseq,classification_map,external_counter ,id_total._2,compared_tuple_w_ids._3),sender())
           }
           else if(i == pre22.toInt && (rem * 10) >=5) {
+            //println(external_counter)
             val subseq = new_all_rel_y.toSeq.sortBy(_._1).slice(10 * (i - 1), 10 * (i)).map(x => x._1 -> x._2).toMap
-            router.route(EvalIG(subseq,i,id_total._2,compared_tuple_w_ids._3),sender())
-            val subseq2 = new_all_rel_y.toSeq.sortBy(_._1).slice(10 * (i), 10 * (i).+((rem * 10).toInt)).map(x => x._1 -> x._2).toMap
-            router.route(EvalIG(subseq2,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
+            router.route(EvalIG(subseq,classification_map,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
+            val subseq2 = new_all_rel_y.toSeq.sortBy(_._1).slice(10 * (i), 10 * (i).+((rem * 10).round.toInt)).map(x => x._1 -> x._2).toMap
+            router.route(EvalIG(subseq2,classification_map,external_counter+1,id_total._2,compared_tuple_w_ids._3),sender())
+            external_counter+=1
             terminate = true
           }
           else if (terminate.!=(true)) {
             val subseq = new_all_frg_y.toSeq.sortBy(_._1).slice(10 * (i - 1), 10 * i).map(x => x._1 -> x._2).toMap
             //println(subseq)
-            router.route(EvalIG(subseq,i,id_total._2,compared_tuple_w_ids._3),sender())
+           // println(external_counter)
+            router.route(EvalIG(subseq,classification_map,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
+
           }
         }
       }
       else if(rel_and_subset != 0){
         external_counter+=1
         val subseq = new_all_rel_y.toSeq.slice(0, rel_and_subset).map(x => x._1 -> x._2).toMap
-        router.route(EvalIG(subseq,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
+        router.route(EvalIG(subseq,classification_map,external_counter,id_total._2,compared_tuple_w_ids._3),sender())
       }
 
+       router.route(Broadcast(All_Features_Sent),sender())
     }
 
     case _ =>

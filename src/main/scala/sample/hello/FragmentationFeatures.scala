@@ -2,6 +2,7 @@ package sample.hello
 import akka.actor._
 import collection.JavaConversions._
 import collection.mutable.{HashMap,MultiMap,Map}
+import scala.collection.mutable
 
 /**
  * Created by root on 3/3/15.
@@ -9,8 +10,8 @@ import collection.mutable.{HashMap,MultiMap,Map}
 class FragmentationFeatures extends Actor{
   val relevance= context.actorOf(Props[Relevance], name= "relevance_features")
 
-  var old_fi_frg : Map[String,Int]= Map()
-  var old_seq_conc :Map[String,Int]=Map()
+  var old_fi_frg : Map[String,Int]= mutable.Map()
+  var old_seq_conc :Map[String,Int]=mutable.Map()
   var clearing_map =new HashMap[String, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [String,String]
   //var clearing_map2 =new HashMap[String, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [String,String]
   var wk_Arr_Dr :Map[String,Int]= Map()

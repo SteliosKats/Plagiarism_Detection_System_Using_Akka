@@ -3,6 +3,7 @@ package sample.hello
 import java.io.File
 import akka.actor._
 import java.io._
+import com.typesafe.config.ConfigFactory
 import weka.core.Attribute
 import collection.mutable.{HashMap,MultiMap,Map}
 
@@ -34,15 +35,22 @@ case class FR_Calcs_Routees_Terminated(source_file_matches :HashMap[String, scal
 case class frag_calculate(seq_str :String, start_end_fltr:Array[Int])
 case class calculate_features(wk_Arr_Dr :Map[String,Int],wk_Arr_Ds :Map[String,Int],fi_frg : Map[Int,Int],seq_conc :Map[String,Int],normalised_term_frequency:Map[String,Float],normalised_source_term_freq:Map[String,Float],term_files_occ :Map [String,Int],id_total :Tuple2[Int,Int],compared_tuple_w_ids :Tuple4 [String ,String,Int,Int])
 case class ig_chunking(all_frg_y:HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String],all_rel_y :HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String],classification_map :Map[Int ,String],id_total :Tuple2[Int,Int],compared_tuple_w_ids:Tuple4 [String ,String,Int,Int])
-case class EvalIG(subseq :scala.collection.immutable.Map[Int, scala.collection.mutable.Set[java.lang.String]],counter2:Int,plag_id_counter :Int,source_file_counter :Int)
-case class average_ig_calculation(infogainscores :HashMap [Attribute,Double])
+case class EvalIG(subseq :scala.collection.immutable.Map[Int, scala.collection.mutable.Set[java.lang.String]],classification_map:Map[Int,String],counter2:Int,plag_id_counter :Int,source_file_counter :Int)
+case class average_ig_calculation(infogain :Double ,wF_measure :Double, t_attr :Attribute,fold_number :Int)
+case class All_Features_Sent()
+case class Routee_Finished()
+case class presend_variables(new_all_frg_y: HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String], new_all_rel_y: HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String])
+case class define_m(s_set :collection.immutable.SortedSet[Int],avg_weighted_F_measure :Double)
+
 
 object LexicalAnalysis {
   def ReadFiles2(source_dir :File,plag_dir :File): Unit = {
     var tot_files=0
-    val indexingSystem= ActorSystem("CitationExtractionSystem2")//,ConfigFactory.load(application_is_remote))
-    val plag_file_analysis = indexingSystem.actorOf(Props[PlagFileAnalysis],"plag_analysis")
-    val source_analysis=indexingSystem.actorOf(Props[SourceFileAnalysis],"source_analysis")
+    val configFile2 = getClass.getClassLoader.getResource("local_configuration.conf").getFile
+    val config2 = ConfigFactory.parseFile(new File(configFile2))
+    val lexical_system= ActorSystem("LexicalAnalysisSystem" , config2)
+    val plag_file_analysis = lexical_system.actorOf(Props[PlagFileAnalysis],"plag_analysis")
+    val source_analysis=lexical_system.actorOf(Props[SourceFileAnalysis],"source_analysis")
 
     var counter :Int=0
     for(file <- source_dir.listFiles if(file.getName.endsWith(".txt") )){

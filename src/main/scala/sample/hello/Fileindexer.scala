@@ -6,7 +6,9 @@ import akka.routing.RoundRobinRouter
 import com.typesafe.config.ConfigFactory
 import java.io._
 import java.io.File
+
 import scala.collection.immutable.ListMap
+import scala.collection.mutable.HashMap
 import scala.io.Source
 import scala.util.control.Breaks._
 import akka.routing.ActorRefRoutee
@@ -27,14 +29,20 @@ case class routingmessages(fileline :String, counter :Int,ref_act :ActorRef,file
 case class return_references(reference_array :IndexedSeq[String], line_num :Int ,fileid: Int, poisoned_routees :Int)
 
 case class Citation_Chunking(source_doc_refs :Map[String,Int], plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
-case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String])
+case class Longest_Common_Citation_Sequence(source_doc_refs :Map[String,Int],plag_doc_refs :Map[String,Int],source_plag_filenames :Map[Int,String],chunked_document_matches :Map[String,Int])
+
+case class send_lexical_results(frg_y :HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String],all_rel_y :HashMap[Int, scala.collection.mutable.Set[String]] with scala.collection.mutable.MultiMap [Int,String], s_set :scala.collection.immutable.SortedSet[Int],avg_weighted_F_measure :Double)
+case class send_citation_results(chucked_matches :scala.collection.immutable.Map[String,Int],lccs_str :String,source_plag_filenames :scala.collection.immutable.Map[Int,String])
+case class send_filenames_with_ids(source_file:String ,plag_file :String ,plagfile_id :Int)
 
 object FileIndexer{
   def ReadFiles(source_str: String,source_file_directory :File, plag_directory :File): Unit = {
     var path_filename=new File(" ")
     var fileid=1
     var tot_files=1
-    val indexingSystem= ActorSystem("CitationExtractionSystem")//,ConfigFactory.load(application_is_remote))
+    val configFile = getClass.getClassLoader.getResource("local_configuration.conf").getFile
+    val config = ConfigFactory.parseFile(new File(configFile))
+    val indexingSystem= ActorSystem("CitationExtractionSystem",config)
     val actor_ref_file = indexingSystem.actorOf(Props[FileReceiver],"citation_extraction")
     var filenames_ids :Map[String,Int]=Map()
 
@@ -47,12 +55,16 @@ object FileIndexer{
     }
     actor_ref_file ! file_properties(source_file,1,tot_files,filenames_ids)
 
+    val local_router=indexingSystem.actorSelection("akka.tcp://XmlWrappingSystem@127.0.0.1:5150/user/xls_wrapper")
+
     for(file <- plag_directory.listFiles if(file.getName.endsWith(".txt") && file.getName()!=source_str) ){
       path_filename=new File(file.toString())
       //println(path_filename)
       fileid+=1
       filenames_ids=filenames_ids.+(file.getName() ->fileid)
       actor_ref_file ! file_properties(path_filename,fileid,tot_files,filenames_ids)
+
+      local_router.!(send_filenames_with_ids(source_str,file.getName(),fileid))
     }
   }
 }
@@ -76,6 +88,7 @@ class FileReceiver extends Actor{
   def receive = {
 
     case file_properties(filename, fileid, total_files,filenames_ids) =>
+
       ids_to_filenames=filenames_ids.map(_.swap)
       var counter = 0
       file_counter+=1
@@ -105,11 +118,11 @@ class FileReceiver extends Actor{
           val source_doc_refs :Map[String, Int]=all_refs.filter(_._2==1)
           //println(source_doc_refs)
           for (i <- 2 to all_refs.values.max){   //all_refs.max._2 giati oxi???
-          val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
+            val plag_doc_refs :Map[String, Int]=all_refs.filter(_._2==i)
             //println(plag_doc_refs)
             val source_plag_filenames :Map[Int,String]=Map().+(1 -> ids_to_filenames.get(1).get,2 ->ids_to_filenames.get(i).get)
             algo_router ! Citation_Chunking(source_doc_refs,plag_doc_refs,source_plag_filenames)
-            algo_router ! Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs,source_plag_filenames)
+            //algo_router ! Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs,source_plag_filenames)
 
           }
         }
@@ -182,25 +195,28 @@ class LineSeparator extends Actor with ActorLogging {
 }
 
 class Algorithms_Execution extends Actor with ActorLogging{
-
+   var lccs_str :String=""
+   var source_plag :Map[Int,String] = Map()
   def receive ={
 
     case Citation_Chunking(source_doc_refs, plag_doc_refs,source_plag_filenames) =>
+      source_plag=source_plag_filenames
       val processed_source_doc_refs=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs=MapProcessing(plag_doc_refs)
 
       val citation_chunked_source_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       val citation_chunked_plag_doc_refs :Map[String,Int]=CitationChinkingAlgorithm(processed_plag_doc_refs,processed_source_doc_refs)
 
-      val chunked_document_matches=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
+      val chunked_document_matches :Map[String,Int]=ChunkPairMatchingCC(citation_chunked_source_doc_refs,citation_chunked_plag_doc_refs)
       if(chunked_document_matches.isEmpty){
         println("No Matches found between Source Document:"+source_plag_filenames.get(1).get+"\t And Suspicious Document:"+source_plag_filenames.get(2).get)
       }
       else{
         println("Chunked Document Matches  :"+chunked_document_matches)
       }
+      self.!(Longest_Common_Citation_Sequence(source_doc_refs,plag_doc_refs,source_plag_filenames,chunked_document_matches))
 
-    case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs,source_plag_filenames) =>
+    case Longest_Common_Citation_Sequence(source_doc_refs, plag_doc_refs,source_plag_filenames,chunked_document_matches) =>
       //println("Source Doc refs:"+source_doc_refs+"\t plag doc refs:"+plag_doc_refs)
       val processed_source_doc_refs :Map[String,Float]=MapProcessing(source_doc_refs)
       val processed_plag_doc_refs :Map[String,Float]=MapProcessing(plag_doc_refs)
@@ -208,11 +224,18 @@ class Algorithms_Execution extends Actor with ActorLogging{
       val lccs_string=LCCSAlgorithm(processed_source_doc_refs,processed_plag_doc_refs)
       //println("lccs_string : for files"+source_plag_filenames.apply(1) + " and "+source_plag_filenames.apply(2))
       if(lccs_string.isEmpty){
-        println("No Citation Tiles found between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" ")
+        println("No Citation Sequences found between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" ")
       }
       else{
         println("LCCS between Source Document \""+source_plag_filenames.get(1).get+"\" \t And Suspicious Document \""+source_plag_filenames.get(2).get+"\" is :"+lccs_string)
+        lccs_str=lccs_string
       }
+      val local_router=context.actorSelection("akka.tcp://XmlWrappingSystem@127.0.0.1:5150/user/xls_wrapper")
+      local_router.!(send_citation_results(chunked_document_matches ,lccs_str,source_plag_filenames))
+
+    case _ =>
+        println("No results sent to Algorithm Execution Actor")
+
   }
 
   def MapProcessing (mapped_doc_refs :Map[String,Int]): Map[String,Float] ={

@@ -26,12 +26,12 @@ class ReturnedSourcePlagMatches extends Actor {
     case returned_Multimaps(plag_tuple,source_word,times_found,comp_file_ids) =>
       //println(comp_file_ids)
       if(!source_word.isEmpty){
-        mixed_source_file_matches.addBinding(source_word.head._1+"@"+comp_file_ids._1+","+comp_file_ids._2,source_word.head._2)
+        mixed_source_file_matches.addBinding(source_word.head._1+"@"+comp_file_ids._1+","+comp_file_ids._2,source_word.head._2)  //word@source_id,plag_id  , source_file_position
       }
-      mixed_plag_file_matches.addBinding(plag_tuple._1+"@"+comp_file_ids._1+","+comp_file_ids._2, plag_tuple._2)
+      mixed_plag_file_matches.addBinding(plag_tuple._1+"@"+comp_file_ids._1+","+comp_file_ids._2, plag_tuple._2)  //word@source_id,plag_id  , plag_file_position
 
     case End_Of_SourceFile(id_size_filename_total,source_file_words,compared_tuple_w_ids) =>
-      if(document_count_ids.contains(compared_tuple_w_ids._3+","+compared_tuple_w_ids._4)){
+      if(document_count_ids.contains(compared_tuple_w_ids._3+","+compared_tuple_w_ids._4)){ //to Map document_count_ids periexei tuples (source_id,plag_id  -> atihmos emfanisewn)
         document_count_ids=document_count_ids.+(compared_tuple_w_ids._3+","+compared_tuple_w_ids._4 -> (document_count_ids.apply(compared_tuple_w_ids._3+","+compared_tuple_w_ids._4)+1))
       }
       else

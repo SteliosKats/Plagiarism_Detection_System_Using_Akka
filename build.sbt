@@ -5,8 +5,8 @@ version := "2.3.5"
 scalaVersion := "2.10.4"
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3.5",
-  "com.typesafe.akka" %% "akka-remote" % "2.3.5",
+  "com.typesafe.akka" %% "akka-actor" % "2.3.7",
+  "com.typesafe.akka" %% "akka-remote" % "2.3.7",
   "edu.arizona.sista" % "processors" % "3.3",
   "edu.arizona.sista" % "processors" % "3.3" classifier "models",
   "edu.stanford.nlp" % "stanford-corenlp" % "3.3.1",
@@ -25,6 +25,9 @@ libraryDependencies ++= Seq(
   "de.bwaldvogel" % "liblinear" % "1.94",
   "log4j" % "log4j" % "1.2.17",
   "nz.ac.waikato.cms.weka" % "weka-dev" % "3.7.12",
-  "tw.edu.ntu.csie" % "libsvm" % "3.17"
+  "tw.edu.ntu.csie" % "libsvm" % "3.17",
+  "com.norbitltd" % "spoiwo" % "1.0.6",
+  "org.apache.poi" % "poi" % "3.8",
+  "org.apache.poi" % "poi-ooxml" % "3.8"
 )
 
