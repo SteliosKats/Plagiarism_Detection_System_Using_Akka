@@ -1,3 +1,5 @@
 [debug] Copy resource mappings: 
+[debug] 	(/root/akka-sample-main-scala/src/main/resources/local_configuration.conf,/root/akka-sample-main-scala/target/scala-2.10/classes/local_configuration.conf)
 [debug] 	(/root/akka-sample-main-scala/src/main/resources/application.conf,/root/akka-sample-main-scala/target/scala-2.10/classes/application.conf)
 [debug] 	(/root/akka-sample-main-scala/src/main/resources/application.conf~,/root/akka-sample-main-scala/target/scala-2.10/classes/application.conf~)
+[debug] 	(/root/akka-sample-main-scala/src/main/resources/remote_application.conf,/root/akka-sample-main-scala/target/scala-2.10/classes/remote_application.conf)

@@ -4,7 +4,7 @@
 		module="akka-sample-main-scala_2.10"
 		revision="2.3.5"
 		status="integration"
-		publication="20150518162001"
+		publication="20150819153823"
 	>
 		<description>
 		akka-sample-main-scala
@@ -34,8 +34,8 @@
 	<dependencies>
 		<dependency org="org.scala-lang" name="scala-compiler" rev="2.10.4" conf="scala-tool->default,optional(default)"/>
 		<dependency org="org.scala-lang" name="scala-library" rev="2.10.4" conf="scala-tool->default,optional(default);compile->default(compile)"/>
-		<dependency org="com.typesafe.akka" name="akka-actor_2.10" rev="2.3.5" conf="compile->default(compile)"/>
-		<dependency org="com.typesafe.akka" name="akka-remote_2.10" rev="2.3.5" conf="compile->default(compile)"/>
+		<dependency org="com.typesafe.akka" name="akka-actor_2.10" rev="2.3.7" conf="compile->default(compile)"/>
+		<dependency org="com.typesafe.akka" name="akka-remote_2.10" rev="2.3.7" conf="compile->default(compile)"/>
 		<dependency org="edu.arizona.sista" name="processors" rev="3.3" conf="compile->default(compile)">
 			<artifact name="processors" type="jar" ext="jar" conf="compile"/>
 			<artifact name="processors" type="jar" ext="jar" conf="*" e:classifier="models"/>
@@ -59,5 +59,8 @@
 		<dependency org="log4j" name="log4j" rev="1.2.17" conf="compile->default(compile)"/>
 		<dependency org="nz.ac.waikato.cms.weka" name="weka-dev" rev="3.7.12" conf="compile->default(compile)"/>
 		<dependency org="tw.edu.ntu.csie" name="libsvm" rev="3.17" conf="compile->default(compile)"/>
+		<dependency org="com.norbitltd" name="spoiwo" rev="1.0.6" conf="compile->default(compile)"/>
+		<dependency org="org.apache.poi" name="poi" rev="3.8" conf="compile->default(compile)"/>
+		<dependency org="org.apache.poi" name="poi-ooxml" rev="3.8" conf="compile->default(compile)"/>
 	</dependencies>
 </ivy-module>
